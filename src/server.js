@@ -55,7 +55,7 @@ async function checkTarget(product) {
     const data = await res.json();
     const avail = data?.data?.product?.fulfillment?.store_options?.[0]?.location_available_to_promise_quantity ?? null;
     if (avail === null) return null;
-    return { qty: avail, status: avail === 0 ? "Out of stock" : avail <= 2 ? "Low stock" : "In stock" };
+    return { qty: avail, status: avail === 0 ? "Out of stock" : avail <= 2 ? "Low stock" : "In stock", storeId: TARGET_STORE_ID };
   } catch {
     return null;
   }
@@ -114,6 +114,7 @@ async function checkBestBuy(product) {
     return {
       qty:    inStock ? 1 : 0,   // Best Buy API doesn't expose exact qty
       status: inStock ? "In stock" : "Out of stock",
+      storeId: BESTBUY_STORE_ID,
       detail: {
         online:  onlineAvail ? "Available" : "Unavailable",
         inStore: storeAvail  ? "Available" : "Unavailable"
@@ -141,7 +142,8 @@ async function checkBestBuyOnline(bbId) {
     const inStock = sku.inStoreAvailability || sku.onlineAvailability;
     return {
       qty:    inStock ? 1 : 0,
-      status: inStock ? "In stock" : "Out of stock"
+      status: inStock ? "In stock" : "Out of stock",
+      storeId: BESTBUY_STORE_ID
     };
   } catch {
     return null;
@@ -162,6 +164,7 @@ async function pollAll() {
     const prevQty    = product.qty;
     product.qty         = result.qty;
     product.status      = result.status;
+    product.storeId     = result.storeId || null;
     product.lastChecked = new Date().toISOString();
 
     // Fire an alert if status changed
@@ -255,6 +258,7 @@ app.post("/api/products/url", async (req, res) => {
     if (result) {
       product.status      = result.status;
       product.qty         = result.qty;
+      product.storeId     = result.storeId || null;
       product.lastChecked = new Date().toISOString();
     } else {
       product.status = "Unknown";
