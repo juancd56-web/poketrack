@@ -82,10 +82,9 @@ BESTBUY_STORE_ID=1055
 
 
 
-- **Data is persisted in SQLite** at `/data/poketrack.db` on Render's attached disk. Products and alert history survive restarts and redeploys automatically. Locally the DB is created as `poketrack.db` in the project root.
-- **Render disk requires the Starter plan** ($7/mo). The free tier does not support persistent disks — on free, the server still works but data resets on each restart. The `render.yaml` is pre-configured to attach a 1 GB disk at `/data`.
+- **Data is in-memory** — restarting the server clears tracked products. To persist data, swap the in-memory arrays in `server.js` for a SQLite file or a free Postgres add-on on Render.
 - **Render free tier** spins down after 15 min of inactivity. Use [UptimeRobot](https://uptimerobot.com) (free) to ping your URL every 5 minutes and keep it awake.
-- The Target and Best Buy pollers extract product IDs from URLs. If a product stays on "Checking…", verify the URL format matches the examples in `server.js`.
+- The Target and Best Buy pollers extract product IDs from URLs. Some products require a resolved TCIN (Target) or BB ID (Best Buy) — if a product stays on "Checking…", verify the URL format matches the examples in `server.js`.
 
 ## Local development
 

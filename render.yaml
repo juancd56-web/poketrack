@@ -7,16 +7,4 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DB_PATH
-        value: /data/poketrack.db
-      - key: TARGET_STORE_ID
-        value: "1234"        # ← replace with your Target store ID
-      - key: BESTBUY_ZIP
-        value: "92056"
-      - key: BESTBUY_STORE_ID
-        value: "498"         # ← replace with your Best Buy store ID
-    plan: starter            # persistent disk requires at least the Starter plan ($7/mo)
-    disk:
-      name: poketrack-data
-      mountPath: /data
-      sizeGB: 1
+    plan: free
