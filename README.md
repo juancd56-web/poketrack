@@ -60,11 +60,32 @@ git push -u origin main
 | GET | `/api/stats` | Summary counts |
 | POST | `/api/poll` | Trigger a manual poll |
 
-## Notes
+## Configuration — Environment Variables
 
-- **Data is in-memory** — restarting the server clears tracked products. To persist data, swap the in-memory arrays in `server.js` for a SQLite file or a free Postgres add-on on Render.
+Set these before running (locally via `.env` or in Render's **Environment** tab):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | HTTP port |
+| `TARGET_STORE_ID` | `1234` | Your nearest Target store ID. Find it in the `pricing_store_id` param of any Target RedSky API request on their site, or from the Target store locator. |
+| `BESTBUY_ZIP` | `10001` | ZIP code for Best Buy availability lookups. Use your own ZIP for accurate local results. |
+| `BESTBUY_STORE_ID` | `498` | Your nearest Best Buy store ID. Find it on the Best Buy store locator page — it's in the URL when you select a store. |
+
+**Example `.env` for local dev:**
+```
+TARGET_STORE_ID=2352
+BESTBUY_ZIP=92056
+BESTBUY_STORE_ID=1055
+```
+
+---
+
+
+
+- **Data is persisted in SQLite** at `/data/poketrack.db` on Render's attached disk. Products and alert history survive restarts and redeploys automatically. Locally the DB is created as `poketrack.db` in the project root.
+- **Render disk requires the Starter plan** ($7/mo). The free tier does not support persistent disks — on free, the server still works but data resets on each restart. The `render.yaml` is pre-configured to attach a 1 GB disk at `/data`.
 - **Render free tier** spins down after 15 min of inactivity. Use [UptimeRobot](https://uptimerobot.com) (free) to ping your URL every 5 minutes and keep it awake.
-- The Target and Best Buy pollers extract product IDs from URLs. Some products require a resolved TCIN (Target) or BB ID (Best Buy) — if a product stays on "Checking…", verify the URL format matches the examples in `server.js`.
+- The Target and Best Buy pollers extract product IDs from URLs. If a product stays on "Checking…", verify the URL format matches the examples in `server.js`.
 
 ## Local development
 
