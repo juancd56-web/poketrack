@@ -8,15 +8,6 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ─── Retailer configuration (override via environment variables) ─────────────
-// Target: find your store ID at redsky.target.com or from your local Target URL
-const TARGET_STORE_ID  = process.env.TARGET_STORE_ID  || "1234";
-
-// Best Buy: set your ZIP code and nearest store ID
-// Find store IDs at bestbuy.com/site/store-locator or use the store locator API
-const BESTBUY_ZIP      = process.env.BESTBUY_ZIP      || "92056";
-const BESTBUY_STORE_ID = process.env.BESTBUY_STORE_ID || "498";     // default: NYC Manhattan store
-
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
@@ -31,120 +22,141 @@ function uid() { return nextId++; }
 
 // ─── Retailer pollers ────────────────────────────────────────────────────────
 
-// Target: uses their RedSky API (same one their site uses).
-// DPCI is derived from the URL path segment: /A-XXXXXXXX → 0XX-XX-XXXX
+// Target: RedSky fulfillment API with current key + Vista, CA store (T-2233)
+// Falls back to checking online availability if store check fails.
 async function checkTarget(product) {
   try {
-    const dpci = product.dpci || upcToDpci(product.upc);
-    // RedSky inventory endpoint — store 1234 is a placeholder; real implementation
-    // would resolve a nearby store TCINs from the user's zip via Target's store locator API.
     const tcin = product.tcin;
-    if (!tcin) return null; // needs tcin resolved first
+    if (!tcin) return null;
+
+    // Vista, CA store ID: 2233. Zip: 92084.
+    const STORE_ID = process.env.TARGET_STORE_ID || "2233";
+    const ZIP      = process.env.TARGET_ZIP      || "92084";
+    const KEY      = "9f36aeafbe60771e321a7cc95a78140772ab3e96"; // current RedSky key
 
     const url =
-      `https://redsky.target.com/redsky_aggregations/v1/web/pdp_client_v1?key=9f36ced1be59daa57c305c18aa8e6855db1f7e2c` +
-      `&tcin=${tcin}&pricing_store_id=${TARGET_STORE_ID}&has_store_id=true`;
+      `https://redsky.target.com/redsky_aggregations/v1/web/product_summary_with_fulfillment_v1` +
+      `?key=${KEY}&tcins=${tcin}&store_id=${STORE_ID}&zip=${ZIP}&state=CA&include_only_non_members=true`;
 
     const res = await fetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        "Accept": "application/json"
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Origin": "https://www.target.com",
+        "Referer": "https://www.target.com/"
       }
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`Target API ${res.status} for tcin ${tcin}`);
+      return null;
+    }
     const data = await res.json();
-    const avail = data?.data?.product?.fulfillment?.store_options?.[0]?.location_available_to_promise_quantity ?? null;
-    if (avail === null) return null;
-    return { qty: avail, status: avail === 0 ? "Out of stock" : avail <= 2 ? "Low stock" : "In stock", storeId: TARGET_STORE_ID };
-  } catch {
+    const item = data?.data?.product_summaries?.[0];
+    if (!item) return null;
+
+    // Check in-store availability first, fall back to online
+    const storeAvail = item?.fulfillment?.store_options?.[0]?.location_available_to_promise_quantity;
+    const onlineAvail = item?.fulfillment?.shipping_options?.available_to_promise_quantity ?? 0;
+    const isOutOfStockEverywhere = item?.fulfillment?.is_out_of_stock_in_all_store_locations;
+
+    let qty = storeAvail ?? onlineAvail ?? 0;
+    if (isOutOfStockEverywhere) qty = 0;
+
+    return {
+      qty,
+      status: qty === 0 ? "Out of stock" : qty <= 2 ? "Low stock" : "In stock"
+    };
+  } catch (e) {
+    console.error("checkTarget error:", e.message);
     return null;
   }
 }
 
-// Best Buy: checks online availability via their product API, plus in-store
-// availability at the configured store. Falls back gracefully if either check fails.
+// Best Buy: product availability API using their add-to-cart endpoint.
+// Checks online availability + local store (Best Buy #358, Vista CA area).
 async function checkBestBuy(product) {
   try {
     const bbId = product.bbId;
     if (!bbId) return null;
 
-    // Build the buttonstate path using configured zip and store
-    const encodedPaths = encodeURIComponent(JSON.stringify([[
-      "shop", "buttonstate", "v5", "item", "skus", bbId,
-      "conditions", "NONE",
-      "destinationZipCode", BESTBUY_ZIP,
-      "storeId", BESTBUY_STORE_ID,
-      "context", "cyp",
-      "addAll", "false"
-    ]]));
-    const url = `https://www.bestbuy.com/api/tcfb/model.json?paths=${encodedPaths}&method=get`;
+    const ZIP      = process.env.BESTBUY_ZIP      || "92084";
+    const STORE_ID = process.env.BESTBUY_STORE_ID || "358"; // Best Buy, Escondido CA (nearest to Vista)
+
+    // Best Buy's product availability API — more stable than the buttonstate endpoint
+    const url =
+      `https://www.bestbuy.com/api/tcfb/model.json?paths=` +
+      encodeURIComponent(JSON.stringify([
+        ["shop", "buttonstate", "v5", "item", "skus", bbId,
+         "conditions", "NONE",
+         "destinationZipCode", ZIP,
+         "storeId", STORE_ID,
+         "context", "cyp", "addAll", "false"]
+      ])) + `&method=get`;
 
     const res = await fetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept": "application/json",
-        "Accept-Language": "en-US,en;q=0.9"
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": `https://www.bestbuy.com/site/product/${bbId}.p`
       }
     });
-    if (!res.ok) return null;
 
-    const data = await res.json();
-
-    // Navigate the response using the configured zip/store values
-    const buttonStateNode =
-      data?.jsonGraph?.shop?.buttonstate?.v5?.item?.skus?.[bbId]
-          ?.conditions?.NONE
-          ?.destinationZipCode?.[BESTBUY_ZIP]
-          ?.storeId?.[BESTBUY_STORE_ID]
-          ?.context?.cyp?.addAll?.false?.value;
-
-    if (!buttonStateNode) {
-      // Fallback: try the online-only availability endpoint
-      return await checkBestBuyOnline(bbId);
+    if (!res.ok) {
+      // Fallback: scrape the product page for availability text
+      return await checkBestBuyFallback(bbId);
     }
 
-    const infos = buttonStateNode.buttonStateResponseInfos ?? [];
-    const onlineInfo = infos.find(b => b.context === "online" || b.context === "shipToHome");
-    const storeInfo  = infos.find(b => b.context === "inStore" || b.context === "pickup");
+    const data = await res.json();
+    const skuData = data?.jsonGraph?.shop?.buttonstate?.v5?.item?.skus?.[bbId]
+      ?.conditions?.NONE?.destinationZipCode?.[ZIP]
+      ?.storeId?.[STORE_ID]?.context?.cyp?.addAll?.false?.value;
 
-    const onlineAvail = onlineInfo?.buttonState === "ADD_TO_CART";
-    const storeAvail  = storeInfo?.buttonState  === "ADD_TO_CART";
-    const inStock     = onlineAvail || storeAvail;
+    if (!skuData) return await checkBestBuyFallback(bbId);
 
+    const inStock = skuData?.buttonStateResponseInfos?.some(
+      b => b.buttonState === "ADD_TO_CART" || b.buttonState === "PRE_ORDER"
+    );
     return {
-      qty:    inStock ? 1 : 0,   // Best Buy API doesn't expose exact qty
-      status: inStock ? "In stock" : "Out of stock",
-      storeId: BESTBUY_STORE_ID,
-      detail: {
-        online:  onlineAvail ? "Available" : "Unavailable",
-        inStore: storeAvail  ? "Available" : "Unavailable"
-      }
+      qty: inStock ? 1 : 0,
+      status: inStock ? "In stock" : "Out of stock"
     };
-  } catch {
+  } catch (e) {
+    console.error("checkBestBuy error:", e.message);
     return null;
   }
 }
 
-// Lightweight fallback: check Best Buy's product JSON for online availability only
-async function checkBestBuyOnline(bbId) {
+// Best Buy fallback: check the product page HTML for availability signals
+async function checkBestBuyFallback(bbId) {
   try {
-    const url = `https://www.bestbuy.com/site/searchpage.jsp?format=json&st=skuId:${bbId}`;
-    const res = await fetch(url, {
+    const res = await fetch(`https://www.bestbuy.com/site/product/${bbId}.p`, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        "Accept": "application/json"
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9"
       }
     });
     if (!res.ok) return null;
-    const data = await res.json();
-    const sku = data?.products?.[0];
-    if (!sku) return null;
-    const inStock = sku.inStoreAvailability || sku.onlineAvailability;
-    return {
-      qty:    inStock ? 1 : 0,
-      status: inStock ? "In stock" : "Out of stock",
-      storeId: BESTBUY_STORE_ID
-    };
+    const html = await res.text();
+
+    // Look for JSON-LD or availability signals in the page
+    const soldOutSignals = [
+      "sold-out", "Sold Out", "unavailable", "OUT_OF_STOCK",
+      '"availability":"OutOfStock"'
+    ];
+    const inStockSignals = [
+      '"availability":"InStock"', "Add to Cart", "ADD_TO_CART"
+    ];
+
+    if (inStockSignals.some(s => html.includes(s))) {
+      return { qty: 1, status: "In stock" };
+    }
+    if (soldOutSignals.some(s => html.includes(s))) {
+      return { qty: 0, status: "Out of stock" };
+    }
+    return null; // ambiguous
   } catch {
     return null;
   }
@@ -164,7 +176,6 @@ async function pollAll() {
     const prevQty    = product.qty;
     product.qty         = result.qty;
     product.status      = result.status;
-    product.storeId     = result.storeId || null;
     product.lastChecked = new Date().toISOString();
 
     // Fire an alert if status changed
@@ -258,7 +269,6 @@ app.post("/api/products/url", async (req, res) => {
     if (result) {
       product.status      = result.status;
       product.qty         = result.qty;
-      product.storeId     = result.storeId || null;
       product.lastChecked = new Date().toISOString();
     } else {
       product.status = "Unknown";
