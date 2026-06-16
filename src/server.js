@@ -338,10 +338,10 @@ app.post("/api/poll", async (req, res) => {
 });
 
 // ─── Scheduler: poll every 3 minutes ────────────────────────────────────────
-cron.schedule("*/3 * * * *", pollAll);
+cron.schedule("* * * * *", pollAll);
 
 // ─── Start ───────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`PokéTrack backend running on port ${PORT}`);
-  console.log(`Poll interval: every 3 minutes`);
+  console.log(`Poll interval: every 1 minute`);
 });
