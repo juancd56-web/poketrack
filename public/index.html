@@ -228,7 +228,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </button>
         </div>
-        <table><thead><tr><th>Product</th><th>Retailer</th><th>Status</th><th>Qty</th><th>Store ID</th><th>Last checked</th><th>Alert</th><th></th></tr></thead>
+        <table><thead><tr><th>Product</th><th>Retailer</th><th>Store</th><th>Status</th><th>Qty</th><th>Last checked</th><th>Alert</th><th></th></tr></thead>
         <tbody id="dash-tbody"></tbody></table>
       </div>
     </div>
@@ -388,17 +388,22 @@ function renderTable() {
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">🔍</div><p>No products match.</p></div></td></tr>`;
     return;
   }
-  tbody.innerHTML = list.map(p => `
+  tbody.innerHTML = list.map(p => {
+    const storeLabel = p.retailer === "Target"
+      ? `<span style="color:var(--text2);font-size:12px;">Vista #2233</span>`
+      : `<span style="color:var(--text2);font-size:12px;">Best Buy #437</span>`;
+    return `
     <tr>
       <td style="font-weight:500;">${p.name}</td>
       <td>${retailerBadge(p.retailer)}</td>
+      <td>${storeLabel}</td>
       <td>${statusBadge(p.status)}</td>
       <td style="color:${p.qty===0?'var(--text3)':p.qty<=2?'var(--amber)':'var(--green)'};">${p.qty===0?'—':p.qty}</td>
-      <td style="color:var(--text2);font-size:12px;font-family:monospace;">${p.storeId || '—'}</td>
       <td style="color:var(--text2);">${timeAgo(p.lastChecked)}</td>
       <td><button class="watch-btn-sm ${p.watching?'on':''}" onclick="toggleWatch(${p.id})">${p.watching?'🔔 Watching':'+ Watch'}</button></td>
       <td><button class="del-btn-sm" onclick="removeProduct(${p.id})">✕</button></td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
 }
 
 async function toggleWatch(id) {

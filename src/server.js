@@ -81,7 +81,7 @@ async function checkBestBuy(product) {
     if (!bbId) return null;
 
     const ZIP      = process.env.BESTBUY_ZIP      || "92084";
-    const STORE_ID = process.env.BESTBUY_STORE_ID || "358"; // Best Buy, Escondido CA (nearest to Vista)
+    const STORE_ID = process.env.BESTBUY_STORE_ID || "437"; // Best Buy, store 437
 
     // Best Buy's product availability API — more stable than the buttonstate endpoint
     const url =
