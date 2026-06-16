@@ -250,14 +250,55 @@
 
   <!-- ADD -->
   <div class="page" id="page-add">
-    <div class="page-header"><div><h1>Search &amp; add products</h1><p>Paste a retailer URL or enter a UPC to start tracking</p></div></div>
+    <div class="page-header"><div><h1>Search &amp; add products</h1><p>Select a product or paste a URL to start tracking</p></div></div>
     <div class="page-body">
       <div class="add-sections">
         <div class="add-card">
-          <h2>Paste a product URL</h2>
-          <p class="sub">Most reliable — works with any Target or Best Buy product link.</p>
-          <label>Product name</label>
-          <input type="text" id="url-name" placeholder="e.g. Prismatic Evolutions ETB">
+          <h2>Select a product</h2>
+          <p class="sub">Pick a set and SKU — the product name fills in automatically.</p>
+          <label>Product line</label>
+          <select id="sel-line" onchange="updateSkuDropdown()">
+            <option value="">— Select a set —</option>
+            <optgroup label="Mega Evolution Era (2026)">
+              <option value="Mega Evolution—Chaos Rising">Chaos Rising</option>
+              <option value="Mega Evolution—Perfect Order">Perfect Order</option>
+              <option value="Mega Evolution—Ascended Heroes">Ascended Heroes</option>
+            </optgroup>
+            <optgroup label="Scarlet &amp; Violet Era (2023–2025)">
+              <option value="Prismatic Evolutions">Prismatic Evolutions</option>
+              <option value="Surging Sparks">Surging Sparks</option>
+              <option value="Stellar Crown">Stellar Crown</option>
+              <option value="Shrouded Fable">Shrouded Fable</option>
+              <option value="Twilight Masquerade">Twilight Masquerade</option>
+              <option value="Temporal Forces">Temporal Forces</option>
+              <option value="Paldean Fates">Paldean Fates</option>
+              <option value="Paradox Rift">Paradox Rift</option>
+              <option value="Pokemon 151">Pokémon 151</option>
+              <option value="Obsidian Flames">Obsidian Flames</option>
+              <option value="Paldea Evolved">Paldea Evolved</option>
+              <option value="Scarlet &amp; Violet Base">Scarlet &amp; Violet Base</option>
+            </optgroup>
+          </select>
+          <label>SKU / Product type</label>
+          <select id="sel-sku" onchange="updateProductName()">
+            <option value="">— Select a set first —</option>
+          </select>
+          <label>Product name (auto-filled)</label>
+          <input type="text" id="sel-name" placeholder="Will fill automatically…" readonly style="opacity:0.7;cursor:default;">
+          <label>Retailer</label>
+          <select id="sel-retailer">
+            <option value="Target">Target</option>
+            <option value="Best Buy">Best Buy</option>
+          </select>
+          <label>Product URL</label>
+          <input type="url" id="sel-url" placeholder="https://www.target.com/p/…" oninput="detectRetailerFromSel()">
+          <button class="btn btn-primary" id="sel-btn" onclick="addBySelect()">Track this product</button>
+        </div>
+        <div class="add-card">
+          <h2>Paste a URL manually</h2>
+          <p class="sub">For any product not in the list — paste a Target or Best Buy link.</p>
+          <label>Custom product name</label>
+          <input type="text" id="url-name" placeholder="e.g. Charizard ex Super Premium Collection">
           <label>Product URL</label>
           <input type="url" id="url-input" placeholder="https://www.target.com/p/…" oninput="detectRetailer()">
           <label>Retailer (auto-detected)</label>
@@ -266,21 +307,7 @@
             <option value="Target">Target</option>
             <option value="Best Buy">Best Buy</option>
           </select>
-          <button class="btn btn-primary" id="url-btn" onclick="addByURL()">Track this product</button>
-        </div>
-        <div class="add-card">
-          <h2>Enter a UPC manually</h2>
-          <p class="sub">Find the barcode on the box or look it up at barcodelookup.com.</p>
-          <label>Product name</label>
-          <input type="text" id="upc-name" placeholder="e.g. Prismatic Evolutions ETB">
-          <label>UPC / DPCI</label>
-          <input type="text" id="upc-code" placeholder="e.g. 820650850141">
-          <label>Retailer</label>
-          <select id="upc-retailer">
-            <option value="Target">Target</option>
-            <option value="Best Buy">Best Buy</option>
-          </select>
-          <button class="btn" id="upc-btn" onclick="addByUPC()">Track this product</button>
+          <button class="btn" id="url-btn" onclick="addByURL()">Track this product</button>
         </div>
       </div>
       <div class="recently-added">
@@ -459,28 +486,78 @@ function renderRecent() {
     </tr>`).join("");
 }
 
-// ── Add product ───────────────────────────────────────────────────────────────
-function detectRetailer() {
-  const v = document.getElementById("url-input").value;
-  const sel = document.getElementById("url-retailer");
-  if (v.includes("target.com"))   sel.value = "Target";
-  else if (v.includes("bestbuy.com")) sel.value = "Best Buy";
-  else sel.value = "";
+// ── SKU options per set ───────────────────────────────────────────────────────
+const SKU_OPTIONS = [
+  { value: "Elite Trainer Box",         label: "Elite Trainer Box (ETB)" },
+  { value: "Booster Bundle",            label: "Booster Bundle (6 packs)" },
+  { value: "Booster Box",               label: "Booster Box (36 packs)" },
+  { value: "Booster Pack",              label: "Booster Pack (single)" },
+  { value: "Super Premium Collection",  label: "Super Premium Collection (SPC)" },
+  { value: "Premium Collection",        label: "Premium Collection" },
+  { value: "Collection Box",            label: "Collection Box" },
+  { value: "Tin",                       label: "Tin" },
+  { value: "Binder Collection",         label: "Binder Collection" },
+];
+
+// Sets that don't get a Booster Box (special/mini sets)
+const NO_BOOSTER_BOX = new Set(["Prismatic Evolutions", "Paldean Fates", "Shrouded Fable",
+  "Mega Evolution—Ascended Heroes"]);
+
+function updateSkuDropdown() {
+  const line = document.getElementById("sel-line").value;
+  const skuSel = document.getElementById("sel-sku");
+  skuSel.innerHTML = '<option value="">— Select a SKU —</option>';
+  if (!line) return;
+
+  SKU_OPTIONS.forEach(opt => {
+    if (opt.value === "Booster Box" && NO_BOOSTER_BOX.has(line)) return;
+    const el = document.createElement("option");
+    el.value = opt.value;
+    el.textContent = opt.label;
+    skuSel.appendChild(el);
+  });
+  updateProductName();
 }
 
-async function addByURL() {
-  const url  = document.getElementById("url-input").value.trim();
-  const name = document.getElementById("url-name").value.trim();
-  if (!url) { showToast("Paste a product URL first."); return; }
-  const btn = document.getElementById("url-btn");
+function updateProductName() {
+  const line = document.getElementById("sel-line").value;
+  const sku  = document.getElementById("sel-sku").value;
+  const nameEl = document.getElementById("sel-name");
+  if (line && sku) {
+    nameEl.value = `${line} ${sku}`;
+  } else if (line) {
+    nameEl.value = line;
+  } else {
+    nameEl.value = "";
+  }
+}
+
+function detectRetailerFromSel() {
+  const v = document.getElementById("sel-url").value;
+  const sel = document.getElementById("sel-retailer");
+  if (v.includes("target.com"))      sel.value = "Target";
+  else if (v.includes("bestbuy.com")) sel.value = "Best Buy";
+}
+
+async function addBySelect() {
+  const url      = document.getElementById("sel-url").value.trim();
+  const name     = document.getElementById("sel-name").value.trim();
+  const retailer = document.getElementById("sel-retailer").value;
+  if (!document.getElementById("sel-line").value) { showToast("Please select a product line."); return; }
+  if (!document.getElementById("sel-sku").value)  { showToast("Please select a SKU type."); return; }
+  if (!url) { showToast("Please paste the product URL."); return; }
+
+  const btn = document.getElementById("sel-btn");
   btn.disabled = true; btn.textContent = "Adding…";
   try {
-    const p = await apiFetch("/api/products/url", { method: "POST", body: JSON.stringify({ url, name: name || "New product" }) });
+    const p = await apiFetch("/api/products/url", { method: "POST", body: JSON.stringify({ url, name }) });
     products.unshift(p);
     renderTable(); renderRecent();
-    document.getElementById("url-input").value = "";
-    document.getElementById("url-name").value = "";
-    showToast(`✅ Now tracking ${p.name} at ${p.retailer}`);
+    document.getElementById("sel-url").value = "";
+    document.getElementById("sel-line").value = "";
+    document.getElementById("sel-sku").innerHTML = '<option value="">— Select a set first —</option>';
+    document.getElementById("sel-name").value = "";
+    showToast(`✅ Now tracking ${name} at ${p.retailer}`);
   } catch(e) {
     showToast("Error: " + (e.message || "Could not add product"));
   } finally {
@@ -488,20 +565,29 @@ async function addByURL() {
   }
 }
 
-async function addByUPC() {
-  const name    = document.getElementById("upc-name").value.trim();
-  const upc     = document.getElementById("upc-code").value.trim();
-  const retailer = document.getElementById("upc-retailer").value;
-  if (!name || !upc) { showToast("Fill in the product name and UPC."); return; }
-  const btn = document.getElementById("upc-btn");
+// ── Add product (manual URL) ──────────────────────────────────────────────────
+function detectRetailer() {
+  const v = document.getElementById("url-input").value;
+  const sel = document.getElementById("url-retailer");
+  if (v.includes("target.com"))       sel.value = "Target";
+  else if (v.includes("bestbuy.com")) sel.value = "Best Buy";
+  else sel.value = "";
+}
+
+async function addByURL() {
+  const url  = document.getElementById("url-input").value.trim();
+  const name = document.getElementById("url-name").value.trim();
+  if (!url)  { showToast("Paste a product URL first."); return; }
+  if (!name) { showToast("Enter a product name first."); return; }
+  const btn = document.getElementById("url-btn");
   btn.disabled = true; btn.textContent = "Adding…";
   try {
-    const p = await apiFetch("/api/products/upc", { method: "POST", body: JSON.stringify({ name, upc, retailer }) });
+    const p = await apiFetch("/api/products/url", { method: "POST", body: JSON.stringify({ url, name }) });
     products.unshift(p);
     renderTable(); renderRecent();
-    document.getElementById("upc-name").value = "";
-    document.getElementById("upc-code").value = "";
-    showToast(`✅ Now tracking ${name} at ${retailer}`);
+    document.getElementById("url-input").value = "";
+    document.getElementById("url-name").value  = "";
+    showToast(`✅ Now tracking ${p.name} at ${p.retailer}`);
   } catch(e) {
     showToast("Error: " + (e.message || "Could not add product"));
   } finally {
