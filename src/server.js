@@ -14,7 +14,35 @@ app.use(express.static(path.join(__dirname, "../public")));
 
 // ─── In-memory store ────────────────────────────────────────────────────────
 // In production you'd swap this for a SQLite or Postgres DB.
-let products = [];   // { id, name, upc, dpci, retailer, status, qty, lastChecked, watching, addedAt }
+// ─── Pre-seeded products ─────────────────────────────────────────────────────
+let products = [
+  // Chaos Rising — Target
+  {
+    id: uid(), name: "Mega Evolution—Chaos Rising Booster Bundle", upc: null,
+    retailer: "Target", tcin: "95298172", dpci: "952-98-172",
+    status: "Checking…", qty: 0, lastChecked: null, watching: true,
+    addedAt: new Date().toISOString(), sourceUrl: "https://www.target.com/p/pok-233-mon-trading-card-game-mega-evolution-chaos-rising-booster-bundle/-/A-95298172"
+  },
+  {
+    id: uid(), name: "Mega Evolution—Chaos Rising Elite Trainer Box", upc: null,
+    retailer: "Target", tcin: "1011710073", dpci: "101-17-10073",
+    status: "Checking…", qty: 0, lastChecked: null, watching: true,
+    addedAt: new Date().toISOString(), sourceUrl: "https://www.target.com/p/pokemon-tcg-mega-evolution-chaos-rising-pokemon-center-elite-trainer-box/-/A-1011710073"
+  },
+  // Chaos Rising — Best Buy
+  {
+    id: uid(), name: "Mega Evolution—Chaos Rising Booster Bundle", upc: null,
+    retailer: "Best Buy", bbId: "12664504",
+    status: "Checking…", qty: 0, lastChecked: null, watching: true,
+    addedAt: new Date().toISOString(), sourceUrl: "https://www.bestbuy.com/product/pokemon-trading-card-game-mega-evolution-chaos-rising-booster-bundle/JJG2TL34H9"
+  },
+  {
+    id: uid(), name: "Mega Evolution—Chaos Rising Elite Trainer Box", upc: null,
+    retailer: "Best Buy", bbId: "12692374",
+    status: "Checking…", qty: 0, lastChecked: null, watching: true,
+    addedAt: new Date().toISOString(), sourceUrl: "https://www.bestbuy.com/product/pokemon-trading-card-game-mega-evolution-chaos-rising-elite-trainer-box/JJG2TL34RT"
+  },
+];
 let alerts   = [];   // { id, type, title, retailer, product, qty, timestamp }
 
 let nextId = 1;
@@ -208,7 +236,7 @@ function buildAlertTitle(product, status, prevQty, qty) {
 }
 
 // ─── URL parser: extract retailer IDs from product URLs ─────────────────────
-function parseRetailerURL(url) {
+async function parseRetailerURL(url) {
   try {
     const u = new URL(url);
 
@@ -221,11 +249,38 @@ function parseRetailerURL(url) {
       return { retailer: "Target", tcin, dpci };
     }
 
-    // Best Buy: https://www.bestbuy.com/site/product-name/1234567.p
+    // Best Buy: two URL formats
+    // Old: /site/product-name/6609962.p  → numeric bbId
+    // New: /product/product-name/JJG2TL34H9 → alphanumeric bsin, need to resolve to numeric skuId
     if (u.hostname.includes("bestbuy.com")) {
-      const match = u.pathname.match(/\/(\d+)\.p/);
-      const bbId  = match ? match[1] : null;
-      return { retailer: "Best Buy", bbId };
+      const numericMatch = u.pathname.match(/\/(\d+)\.p/);
+      if (numericMatch) {
+        return { retailer: "Best Buy", bbId: numericMatch[1] };
+      }
+      // New format — fetch page to extract numeric skuId
+      const alphaMatch = u.pathname.match(/\/([A-Z0-9]{8,})$/i);
+      if (alphaMatch) {
+        try {
+          const res = await fetch(url, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+              "Accept": "text/html"
+            }
+          });
+          if (res.ok) {
+            const html = await res.text();
+            // Extract from meta-analytics-metadata JSON
+            const metaMatch = html.match(/"skuId":"(\d+)"/);
+            if (metaMatch) return { retailer: "Best Buy", bbId: metaMatch[1] };
+            // Fallback: SKU label in page
+            const skuMatch = html.match(/SKU:\s*(\d+)/);
+            if (skuMatch) return { retailer: "Best Buy", bbId: skuMatch[1] };
+          }
+        } catch(e) {
+          console.warn("Best Buy URL resolve error:", e.message);
+        }
+      }
+      return { retailer: "Best Buy", bbId: null };
     }
   } catch {}
   return null;
@@ -243,7 +298,7 @@ app.post("/api/products/url", async (req, res) => {
   const { url, name } = req.body;
   if (!url) return res.status(400).json({ error: "url is required" });
 
-  const parsed = parseRetailerURL(url);
+  const parsed = await parseRetailerURL(url);
   if (!parsed) return res.status(400).json({ error: "Only Target and Best Buy URLs are supported." });
 
   const product = {
@@ -344,4 +399,6 @@ cron.schedule("* * * * *", pollAll);
 app.listen(PORT, () => {
   console.log(`PokéTrack backend running on port ${PORT}`);
   console.log(`Poll interval: every 1 minute`);
+  // Poll immediately on startup so dashboard shows real status right away
+  setTimeout(pollAll, 3000);
 });
