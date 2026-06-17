@@ -13,7 +13,9 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
 
 // ─── In-memory store ────────────────────────────────────────────────────────
-// In production you'd swap this for a SQLite or Postgres DB.
+let nextId = 1;
+function uid() { return nextId++; }
+
 // ─── Pre-seeded products ─────────────────────────────────────────────────────
 let products = [
   // Chaos Rising — Target
@@ -43,10 +45,7 @@ let products = [
     addedAt: new Date().toISOString(), sourceUrl: "https://www.bestbuy.com/product/pokemon-trading-card-game-mega-evolution-chaos-rising-elite-trainer-box/JJG2TL34RT"
   },
 ];
-let alerts   = [];   // { id, type, title, retailer, product, qty, timestamp }
-
-let nextId = 1;
-function uid() { return nextId++; }
+let alerts = [];   // { id, type, title, retailer, product, qty, timestamp }
 
 // ─── Retailer pollers ────────────────────────────────────────────────────────
 
