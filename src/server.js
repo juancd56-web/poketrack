@@ -100,54 +100,76 @@ async function checkTarget(product) {
   }
 }
 
-// Best Buy: product availability API using their add-to-cart endpoint.
-// Checks online availability + local store (Best Buy #358, Vista CA area).
+// Best Buy: checks all 3 stores within 25 miles of Vista, CA
+// #437 Oceanside (~4mi), #871 San Marcos (~6mi), #352 Mira Mesa (~22mi)
+const BB_STORES = [
+  { id: "437", name: "Oceanside" },
+  { id: "871", name: "San Marcos" },
+  { id: "352", name: "Mira Mesa" },
+];
+
 async function checkBestBuy(product) {
   try {
     const bbId = product.bbId;
     if (!bbId) return null;
 
-    const ZIP      = process.env.BESTBUY_ZIP      || "92084";
-    const STORE_ID = process.env.BESTBUY_STORE_ID || "437"; // Best Buy, store 437
+    const ZIP = process.env.BESTBUY_ZIP || "92084";
+    let totalQty = 0;
+    let anyInStock = false;
+    let storeResults = [];
 
-    // Best Buy's product availability API — more stable than the buttonstate endpoint
-    const url =
-      `https://www.bestbuy.com/api/tcfb/model.json?paths=` +
-      encodeURIComponent(JSON.stringify([
-        ["shop", "buttonstate", "v5", "item", "skus", bbId,
-         "conditions", "NONE",
-         "destinationZipCode", ZIP,
-         "storeId", STORE_ID,
-         "context", "cyp", "addAll", "false"]
-      ])) + `&method=get`;
+    for (const store of BB_STORES) {
+      const url =
+        `https://www.bestbuy.com/api/tcfb/model.json?paths=` +
+        encodeURIComponent(JSON.stringify([
+          ["shop", "buttonstate", "v5", "item", "skus", bbId,
+           "conditions", "NONE",
+           "destinationZipCode", ZIP,
+           "storeId", store.id,
+           "context", "cyp", "addAll", "false"]
+        ])) + `&method=get`;
 
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "application/json",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": `https://www.bestbuy.com/site/product/${bbId}.p`
+      try {
+        const res = await fetch(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+            "Referer": `https://www.bestbuy.com/site/product/${bbId}.p`
+          }
+        });
+
+        if (!res.ok) {
+          storeResults.push({ store: store.name, inStock: false });
+          continue;
+        }
+
+        const data = await res.json();
+        const skuData = data?.jsonGraph?.shop?.buttonstate?.v5?.item?.skus?.[bbId]
+          ?.conditions?.NONE?.destinationZipCode?.[ZIP]
+          ?.storeId?.[store.id]?.context?.cyp?.addAll?.false?.value;
+
+        const inStock = skuData?.buttonStateResponseInfos?.some(
+          b => b.buttonState === "ADD_TO_CART" || b.buttonState === "PRE_ORDER"
+        ) ?? false;
+
+        if (inStock) { anyInStock = true; totalQty++; }
+        storeResults.push({ store: store.name, inStock });
+      } catch {
+        storeResults.push({ store: store.name, inStock: false });
       }
-    });
-
-    if (!res.ok) {
-      // Fallback: scrape the product page for availability text
-      return await checkBestBuyFallback(bbId);
     }
 
-    const data = await res.json();
-    const skuData = data?.jsonGraph?.shop?.buttonstate?.v5?.item?.skus?.[bbId]
-      ?.conditions?.NONE?.destinationZipCode?.[ZIP]
-      ?.storeId?.[STORE_ID]?.context?.cyp?.addAll?.false?.value;
+    // Fallback to page scrape if all API calls failed
+    if (storeResults.every(r => !r.inStock) && totalQty === 0) {
+      const fallback = await checkBestBuyFallback(bbId);
+      if (fallback) return fallback;
+    }
 
-    if (!skuData) return await checkBestBuyFallback(bbId);
-
-    const inStock = skuData?.buttonStateResponseInfos?.some(
-      b => b.buttonState === "ADD_TO_CART" || b.buttonState === "PRE_ORDER"
-    );
+    const inStockStores = storeResults.filter(r => r.inStock).map(r => r.store);
     return {
-      qty: inStock ? 1 : 0,
-      status: inStock ? "In stock" : "Out of stock"
+      qty: totalQty, // number of stores with stock
+      status: anyInStock ? (totalQty === 1 ? "Low stock" : "In stock") : "Out of stock",
+      storeBreakdown: inStockStores // e.g. ["Oceanside", "San Marcos"]
     };
   } catch (e) {
     console.error("checkBestBuy error:", e.message);
