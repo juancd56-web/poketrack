@@ -416,9 +416,7 @@ function renderTable() {
     return;
   }
   tbody.innerHTML = list.map(p => {
-    const storeLabel = p.retailer === "Target"
-      ? `<span style="color:var(--text2);font-size:12px;">Vista #2233</span>`
-      : `<span style="color:var(--text2);font-size:12px;">Oceanside · San Marcos · Mira Mesa</span>`;
+    const storeLabel = `<span style="color:var(--text2);font-size:12px;">${p.storeName || p.retailer}</span>`;
     return `
     <tr>
       <td style="font-weight:500;">${p.name}</td>

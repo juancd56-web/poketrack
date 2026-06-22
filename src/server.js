@@ -17,34 +17,57 @@ let nextId = 1;
 function uid() { return nextId++; }
 
 // ─── Pre-seeded products ─────────────────────────────────────────────────────
-let products = [
-  // Chaos Rising — Target
+// One row per product per store — gives a clear per-location view on the dashboard.
+const TARGET_STORES = [
+  { storeId: "2233", zip: "92084", name: "Vista" },
+];
+const BB_STORES = [
+  { id: "437", name: "Oceanside" },
+  { id: "871", name: "San Marcos" },
+  { id: "352", name: "Mira Mesa" },
+];
+
+const SEED_PRODUCTS = [
   {
-    id: uid(), name: "Mega Evolution—Chaos Rising Booster Bundle", upc: null,
-    retailer: "Target", tcin: "95298172", dpci: "952-98-172",
-    status: "Checking…", qty: 0, lastChecked: null, watching: true,
-    addedAt: new Date().toISOString(), sourceUrl: "https://www.target.com/p/pok-233-mon-trading-card-game-mega-evolution-chaos-rising-booster-bundle/-/A-95298172"
+    name: "Mega Evolution—Chaos Rising Booster Bundle",
+    target: { tcin: "95298172", sourceUrl: "https://www.target.com/p/pok-233-mon-trading-card-game-mega-evolution-chaos-rising-booster-bundle/-/A-95298172" },
+    bestbuy: { bbId: "12664504", sourceUrl: "https://www.bestbuy.com/product/pokemon-trading-card-game-mega-evolution-chaos-rising-booster-bundle/JJG2TL34H9" },
   },
   {
-    id: uid(), name: "Mega Evolution—Chaos Rising Elite Trainer Box", upc: null,
-    retailer: "Target", tcin: "1011710073", dpci: "101-17-10073",
-    status: "Checking…", qty: 0, lastChecked: null, watching: true,
-    addedAt: new Date().toISOString(), sourceUrl: "https://www.target.com/p/pokemon-tcg-mega-evolution-chaos-rising-pokemon-center-elite-trainer-box/-/A-1011710073"
-  },
-  // Chaos Rising — Best Buy
-  {
-    id: uid(), name: "Mega Evolution—Chaos Rising Booster Bundle", upc: null,
-    retailer: "Best Buy", bbId: "12664504",
-    status: "Checking…", qty: 0, lastChecked: null, watching: true,
-    addedAt: new Date().toISOString(), sourceUrl: "https://www.bestbuy.com/product/pokemon-trading-card-game-mega-evolution-chaos-rising-booster-bundle/JJG2TL34H9"
-  },
-  {
-    id: uid(), name: "Mega Evolution—Chaos Rising Elite Trainer Box", upc: null,
-    retailer: "Best Buy", bbId: "12692374",
-    status: "Checking…", qty: 0, lastChecked: null, watching: true,
-    addedAt: new Date().toISOString(), sourceUrl: "https://www.bestbuy.com/product/pokemon-trading-card-game-mega-evolution-chaos-rising-elite-trainer-box/JJG2TL34RT"
+    name: "Mega Evolution—Chaos Rising Elite Trainer Box",
+    target: { tcin: "1011710073", sourceUrl: "https://www.target.com/p/pokemon-tcg-mega-evolution-chaos-rising-pokemon-center-elite-trainer-box/-/A-1011710073" },
+    bestbuy: { bbId: "12692374", sourceUrl: "https://www.bestbuy.com/product/pokemon-trading-card-game-mega-evolution-chaos-rising-elite-trainer-box/JJG2TL34RT" },
   },
 ];
+
+function buildSeededProducts() {
+  const list = [];
+  for (const seed of SEED_PRODUCTS) {
+    // One Target row per Target store
+    for (const store of TARGET_STORES) {
+      list.push({
+        id: uid(), name: seed.name, upc: null,
+        retailer: "Target", storeName: `Target ${store.name}`, storeId: store.storeId, zip: store.zip,
+        tcin: seed.target.tcin,
+        status: "Checking…", qty: 0, lastChecked: null, watching: true,
+        addedAt: new Date().toISOString(), sourceUrl: seed.target.sourceUrl,
+      });
+    }
+    // One Best Buy row per BB store
+    for (const store of BB_STORES) {
+      list.push({
+        id: uid(), name: seed.name, upc: null,
+        retailer: "Best Buy", storeName: `Best Buy ${store.name}`, storeId: store.id,
+        bbId: seed.bestbuy.bbId,
+        status: "Checking…", qty: 0, lastChecked: null, watching: true,
+        addedAt: new Date().toISOString(), sourceUrl: seed.bestbuy.sourceUrl,
+      });
+    }
+  }
+  return list;
+}
+
+let products = buildSeededProducts();
 let alerts = [];   // { id, type, title, retailer, product, qty, timestamp }
 
 // ─── Retailer pollers ────────────────────────────────────────────────────────
@@ -100,77 +123,46 @@ async function checkTarget(product) {
   }
 }
 
-// Best Buy: checks all 3 stores within 25 miles of Vista, CA
-// #437 Oceanside (~4mi), #871 San Marcos (~6mi), #352 Mira Mesa (~22mi)
-const BB_STORES = [
-  { id: "437", name: "Oceanside" },
-  { id: "871", name: "San Marcos" },
-  { id: "352", name: "Mira Mesa" },
-];
-
+// Best Buy: checks a single store per product (storeId stored on product)
 async function checkBestBuy(product) {
   try {
-    const bbId = product.bbId;
-    if (!bbId) return null;
+    const bbId    = product.bbId;
+    const storeId = product.storeId;
+    if (!bbId || !storeId) return null;
 
     const ZIP = process.env.BESTBUY_ZIP || "92084";
-    let totalQty = 0;
-    let anyInStock = false;
-    let storeResults = [];
+    const url =
+      `https://www.bestbuy.com/api/tcfb/model.json?paths=` +
+      encodeURIComponent(JSON.stringify([
+        ["shop", "buttonstate", "v5", "item", "skus", bbId,
+         "conditions", "NONE",
+         "destinationZipCode", ZIP,
+         "storeId", storeId,
+         "context", "cyp", "addAll", "false"]
+      ])) + `&method=get`;
 
-    for (const store of BB_STORES) {
-      const url =
-        `https://www.bestbuy.com/api/tcfb/model.json?paths=` +
-        encodeURIComponent(JSON.stringify([
-          ["shop", "buttonstate", "v5", "item", "skus", bbId,
-           "conditions", "NONE",
-           "destinationZipCode", ZIP,
-           "storeId", store.id,
-           "context", "cyp", "addAll", "false"]
-        ])) + `&method=get`;
-
-      try {
-        const res = await fetch(url, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "Accept": "application/json",
-            "Referer": `https://www.bestbuy.com/site/product/${bbId}.p`
-          }
-        });
-
-        if (!res.ok) {
-          storeResults.push({ store: store.name, inStock: false });
-          continue;
-        }
-
-        const data = await res.json();
-        const skuData = data?.jsonGraph?.shop?.buttonstate?.v5?.item?.skus?.[bbId]
-          ?.conditions?.NONE?.destinationZipCode?.[ZIP]
-          ?.storeId?.[store.id]?.context?.cyp?.addAll?.false?.value;
-
-        const inStock = skuData?.buttonStateResponseInfos?.some(
-          b => b.buttonState === "ADD_TO_CART" || b.buttonState === "PRE_ORDER"
-        ) ?? false;
-
-        if (inStock) { anyInStock = true; totalQty++; }
-        storeResults.push({ store: store.name, inStock });
-      } catch {
-        storeResults.push({ store: store.name, inStock: false });
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+        "Referer": `https://www.bestbuy.com/site/product/${bbId}.p`
       }
-    }
+    });
 
-    // Fallback to page scrape if all API calls failed
-    if (storeResults.every(r => !r.inStock) && totalQty === 0) {
-      const fallback = await checkBestBuyFallback(bbId);
-      if (fallback) return fallback;
-    }
+    if (!res.ok) return await checkBestBuyFallback(bbId);
 
-    const inStockStores = storeResults.filter(r => r.inStock).map(r => r.store);
-    return {
-      qty: totalQty, // number of stores with stock
-      status: anyInStock ? (totalQty === 1 ? "Low stock" : "In stock") : "Out of stock",
-      storeBreakdown: inStockStores // e.g. ["Oceanside", "San Marcos"]
-    };
+    const data = await res.json();
+    const skuData = data?.jsonGraph?.shop?.buttonstate?.v5?.item?.skus?.[bbId]
+      ?.conditions?.NONE?.destinationZipCode?.[ZIP]
+      ?.storeId?.[storeId]?.context?.cyp?.addAll?.false?.value;
+
+    if (!skuData) return await checkBestBuyFallback(bbId);
+
+    const inStock = skuData?.buttonStateResponseInfos?.some(
+      b => b.buttonState === "ADD_TO_CART" || b.buttonState === "PRE_ORDER"
+    ) ?? false;
+
+    return { qty: inStock ? 1 : 0, status: inStock ? "In stock" : "Out of stock" };
   } catch (e) {
     console.error("checkBestBuy error:", e.message);
     return null;
