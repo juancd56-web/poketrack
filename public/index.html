@@ -141,6 +141,7 @@
 
   .empty { text-align: center; padding: 3rem 1rem; color: var(--text3); }
   .empty-icon { font-size: 32px; margin-bottom: 10px; }
+  .section-title { font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);font-weight:500; }
   .spin { display: inline-block; animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -178,6 +179,11 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     Search &amp; add
   </button>
+  <div class="nav-section">Dev</div>
+  <button class="nav-item" onclick="showPage('debug',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 8v4l3 3"/></svg>
+    API diagnostics
+  </button>
   <div class="nav-footer">
     <div class="live-indicator">
       <div class="live-dot" id="live-dot"></div>
@@ -190,11 +196,17 @@
   <!-- DASHBOARD -->
   <div class="page active" id="page-dashboard">
     <div class="page-header">
-      <div><h1>Dashboard</h1><p>Target &amp; Best Buy · Pokémon TCG · polling every 1 min</p></div>
-      <button class="btn btn-primary" onclick="showPage('add',document.querySelectorAll('.nav-item')[2])">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-        Track product
-      </button>
+      <div><h1>Dashboard</h1><p id="poll-status-text">Target &amp; Best Buy · Pokémon TCG · polling paused</p></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" id="poll-btn" onclick="togglePolling()">
+          <svg id="poll-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span id="poll-label">Start polling</span>
+        </button>
+        <button class="btn btn-primary" onclick="showPage('add',document.querySelectorAll('.nav-item')[2])">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Track product
+        </button>
+      </div>
     </div>
     <div class="page-body">
       <div id="notify-banner" class="notify-banner" style="display:none;">
@@ -228,7 +240,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </button>
         </div>
-        <table><thead><tr><th>Product</th><th>Retailer</th><th></th><th>Status</th><th>Qty</th><th>Last checked</th><th>Alert</th><th></th></tr></thead>
+        <table><thead><tr><th>Product</th><th></th><th>Status</th><th>Qty</th><th>Last checked</th><th>Alert</th><th></th></tr></thead>
         <tbody id="dash-tbody"></tbody></table>
       </div>
     </div>
@@ -319,16 +331,93 @@
       </div>
     </div>
   </div>
+  <!-- DEBUG -->
+  <div class="page" id="page-debug">
+    <div class="page-header">
+      <div><h1>API diagnostics</h1><p>Test Target's inventory API and configure backend connection</p></div>
+    </div>
+    <div class="page-body">
+
+      <div class="add-sections" style="margin-bottom:1.5rem;">
+        <div class="add-card">
+          <h2>Backend connection</h2>
+          <p class="sub">Point the frontend to your local Mac backend via ngrok instead of Render.</p>
+          <label>ngrok URL (leave blank to use Render)</label>
+          <input type="url" id="ngrok-url" placeholder="https://abc123.ngrok-free.app">
+          <div style="display:flex;gap:8px;margin-top:1rem;">
+            <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveNgrok()">Save & reconnect</button>
+            <button class="btn" style="justify-content:center;" onclick="clearNgrok()">Clear</button>
+          </div>
+          <div id="ngrok-status" style="margin-top:10px;font-size:12px;color:var(--text2);"></div>
+        </div>
+
+        <div class="add-card">
+          <h2>How to run locally</h2>
+          <p class="sub">Run the backend on your Mac so Target API calls come from your home IP.</p>
+          <label>Step 1 — Install ngrok</label>
+          <input type="text" value="brew install ngrok" readonly style="opacity:0.7;cursor:text;font-family:monospace;font-size:12px;">
+          <label>Step 2 — Start the backend</label>
+          <input type="text" value="node src/server.js" readonly style="opacity:0.7;cursor:text;font-family:monospace;font-size:12px;">
+          <label>Step 3 — Open a tunnel</label>
+          <input type="text" value="ngrok http 3000" readonly style="opacity:0.7;cursor:text;font-family:monospace;font-size:12px;">
+          <p class="sub" style="margin-top:10px;margin-bottom:0;">Copy the <strong style="color:var(--text);">https://</strong> URL ngrok gives you, paste it above, and hit Save.</p>
+        </div>
+      </div>
+      <div class="add-card" style="max-width:600px;margin-bottom:1.5rem;">
+        <h2>Test Target API</h2>
+        <p class="sub">Fires a single request to Target's RedSky API and shows the full response — useful for verifying the API is reachable and what inventory data looks like.</p>
+        <label>TCIN</label>
+        <select id="debug-tcin">
+          <option value="95298172">95298172 — Chaos Rising Booster Bundle</option>
+          <option value="1011710073">1011710073 — Chaos Rising ETB</option>
+        </select>
+        <label>Store</label>
+        <select id="debug-store">
+          <option value="303|92054">303 — Target Oceanside</option>
+          <option value="2871|92057">2871 — Target Oceanside East</option>
+          <option value="1040|92083">1040 — Target Vista North</option>
+          <option value="2165|92081">2165 — Target Vista South</option>
+          <option value="1029|92024">1029 — Target Encinitas</option>
+        </select>
+        <button class="btn btn-primary" id="debug-btn" onclick="runDebug()" style="margin-top:1rem;">Run test</button>
+      </div>
+
+      <div id="debug-result" style="display:none;">
+        <div class="section-title" style="margin-bottom:10px;">Result</div>
+        <div class="table-wrap" style="margin-bottom:1rem;">
+          <table>
+            <thead><tr><th>Field</th><th>Value</th></tr></thead>
+            <tbody id="debug-summary-tbody"></tbody>
+          </table>
+        </div>
+        <div class="section-title" style="margin-bottom:10px;">Raw JSON response</div>
+        <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:1rem;overflow:auto;max-height:400px;">
+          <pre id="debug-raw" style="font-size:11px;color:var(--text2);white-space:pre-wrap;word-break:break-all;margin:0;"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <div id="toast"></div>
 
 <script>
 // ── Config ──────────────────────────────────────────────────────────────────
-// Replace this with your Render backend URL after deploying.
-const API = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-  ? "http://localhost:3000"
-  : ""; // Same origin on Render (frontend served from backend)
+// To run the backend locally via ngrok:
+// 1. Run server.js on your Mac: node src/server.js
+// 2. Install ngrok: brew install ngrok
+// 3. Run: ngrok http 3000
+// 4. Copy the https URL (e.g. https://abc123.ngrok-free.app)
+// 5. Open browser console on your Render URL and run:
+//    localStorage.setItem('POKETRACK_API', 'https://abc123.ngrok-free.app')
+// 6. Refresh — the frontend will now use your local backend
+// To revert back to Render: localStorage.removeItem('POKETRACK_API')
+
+const API = localStorage.getItem('POKETRACK_API') ||
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://localhost:3000"
+    : "");
 
 // ── State ───────────────────────────────────────────────────────────────────
 let products = [];
@@ -451,7 +540,6 @@ function renderTable() {
     for (const p of group.items) {
       html += `<tr>
         <td style="font-weight:500;padding-left:28px;">${p.name}</td>
-        <td>${retailerBadge(p.retailer)}</td>
         <td></td>
         <td>${statusBadge(p.status)}</td>
         <td style="color:${p.qty===0?'var(--text3)':p.qty<=2?'var(--amber)':'var(--green)'};">${p.qty===0?'—':p.qty}</td>
@@ -515,6 +603,117 @@ function renderRecent() {
       <td style="color:var(--text2);">${timeAgo(p.addedAt)}</td>
       <td><button class="del-btn-sm" onclick="removeProduct(${p.id})">Remove</button></td>
     </tr>`).join("");
+}
+
+// ── ngrok / backend config ────────────────────────────────────────────────────
+function initNgrokInput() {
+  const stored = localStorage.getItem('POKETRACK_API');
+  if (stored) {
+    document.getElementById("ngrok-url").value = stored;
+    document.getElementById("ngrok-status").textContent = `Active: ${stored}`;
+  }
+}
+
+function saveNgrok() {
+  const val = document.getElementById("ngrok-url").value.trim().replace(/\/$/, "");
+  if (val) {
+    localStorage.setItem('POKETRACK_API', val);
+    document.getElementById("ngrok-status").textContent = `✅ Saved — reloading…`;
+    setTimeout(() => location.reload(), 800);
+  } else {
+    clearNgrok();
+  }
+}
+
+function clearNgrok() {
+  localStorage.removeItem('POKETRACK_API');
+  document.getElementById("ngrok-url").value = "";
+  document.getElementById("ngrok-status").textContent = "Cleared — using Render backend";
+  setTimeout(() => location.reload(), 800);
+}
+
+// ── API Diagnostics ───────────────────────────────────────────────────────────
+async function runDebug() {
+  const tcin = document.getElementById("debug-tcin").value;
+  const [storeId, zip] = document.getElementById("debug-store").value.split("|");
+  const btn = document.getElementById("debug-btn");
+  btn.disabled = true; btn.textContent = "Testing…";
+
+  try {
+    const data = await apiFetch(`/api/debug/target/${tcin}?store_id=${storeId}&zip=${zip}`);
+    const result = document.getElementById("debug-result");
+    result.style.display = "block";
+
+    const r = data.response;
+    const p = data.parsed;
+    const rows = [
+      ["HTTP status",     `${r.status} ${r.statusText}`],
+      ["Response time",   r.elapsed],
+      ["API reachable",   r.status === 200 ? "✅ Yes" : "❌ No — " + (r.headers?.["x-deny-reason"] || "blocked")],
+      ["Product title",   p?.title || "—"],
+      ["Store location",  p?.storeLocation || "—"],
+      ["Store qty",       p?.storeQty ?? "—"],
+      ["Store status",    p?.storeStatus || "—"],
+      ["Pickup status",   p?.pickupStatus || "—"],
+      ["Online status",   p?.onlineStatus || "—"],
+      ["OOS all stores",  p?.oosAllStores !== undefined ? String(p.oosAllStores) : "—"],
+    ];
+
+    document.getElementById("debug-summary-tbody").innerHTML = rows.map(([k, v]) => `
+      <tr>
+        <td style="color:var(--text2);font-size:12px;width:160px;">${k}</td>
+        <td style="font-weight:500;font-size:13px;">${v}</td>
+      </tr>`).join("");
+
+    document.getElementById("debug-raw").textContent = JSON.stringify(data.raw, null, 2);
+  } catch(e) {
+    showToast("Debug error: " + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "Run test";
+  }
+}
+
+// ── Polling control ───────────────────────────────────────────────────────────
+let pollingActive = false;
+
+function setPollingUI(active) {
+  pollingActive = active;
+  const btn   = document.getElementById("poll-btn");
+  const label = document.getElementById("poll-label");
+  const icon  = document.getElementById("poll-icon");
+  const text  = document.getElementById("poll-status-text");
+  if (active) {
+    btn.style.background  = "var(--amber-dim)";
+    btn.style.borderColor = "rgba(251,191,36,0.3)";
+    btn.style.color       = "var(--amber)";
+    icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    label.textContent = "Pause polling";
+    text.textContent  = "Target & Best Buy · Pokémon TCG · polling every 1 min";
+  } else {
+    btn.style.background  = "";
+    btn.style.borderColor = "";
+    btn.style.color       = "";
+    icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+    label.textContent = "Start polling";
+    text.textContent  = "Target & Best Buy · Pokémon TCG · polling paused";
+  }
+}
+
+async function togglePolling() {
+  try {
+    const endpoint = pollingActive ? "/api/polling/pause" : "/api/polling/start";
+    const res = await apiFetch(endpoint, { method: "POST" });
+    setPollingUI(res.active);
+    showToast(res.active ? "▶ Polling started — checking every minute" : "⏸ Polling paused");
+    if (res.active) loadAll();
+  } catch { showToast("Could not reach backend"); }
+}
+
+async function syncPollingState() {
+  try {
+    const res = await apiFetch("/api/polling");
+    setPollingUI(res.active);
+  } catch {}
 }
 
 // ── SKU options per set ───────────────────────────────────────────────────────
@@ -654,6 +853,8 @@ if ("Notification" in window && Notification.permission === "default") {
   document.getElementById("notify-banner").style.display = "flex";
 }
 loadAll();
+syncPollingState();
+initNgrokInput();
 setInterval(loadAll, 30000); // refresh UI every 30s
 </script>
 </body>

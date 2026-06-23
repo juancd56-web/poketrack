@@ -2,7 +2,6 @@
 const express = require("express");
 const cors = require("cors");
 const fetch = require("node-fetch");
-const cron = require("node-cron");
 const path = require("path");
 
 const app = express();
@@ -386,6 +385,60 @@ app.delete("/api/products/:id", (req, res) => {
   res.json({ ok: true });
 });
 
+// GET raw Target API response for a single product — diagnostic tool
+app.get("/api/debug/target/:tcin", async (req, res) => {
+  const { tcin } = req.params;
+  const storeId  = req.query.store_id || "303";
+  const zip      = req.query.zip      || "92054";
+  const KEY      = "9f36aeafbe60771e321a7cc95a78140772ab3e96";
+
+  const url =
+    `https://redsky.target.com/redsky_aggregations/v1/web/product_summary_with_fulfillment_v1` +
+    `?key=${KEY}&tcins=${tcin}&store_id=${storeId}&zip=${zip}&state=CA&include_only_non_members=true`;
+
+  try {
+    const start = Date.now();
+    const apiRes = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Origin": "https://www.target.com",
+        "Referer": "https://www.target.com/"
+      }
+    });
+    const elapsed = Date.now() - start;
+    const responseHeaders = {};
+    apiRes.headers.forEach((v, k) => responseHeaders[k] = v);
+
+    let body = null;
+    let parseError = null;
+    try { body = await apiRes.json(); } catch (e) { parseError = e.message; }
+
+    // Extract the key inventory fields if available
+    const summary = body?.data?.product_summaries?.[0];
+    const parsed = summary ? {
+      title:        summary?.item?.product_description?.title,
+      storeQty:     summary?.fulfillment?.store_options?.[0]?.location_available_to_promise_quantity,
+      storeStatus:  summary?.fulfillment?.store_options?.[0]?.in_store_only?.availability_status,
+      pickupStatus: summary?.fulfillment?.store_options?.[0]?.order_pickup?.availability_status,
+      onlineStatus: summary?.fulfillment?.shipping_options?.availability_status,
+      oosAllStores: summary?.fulfillment?.is_out_of_stock_in_all_store_locations,
+      storeLocation:summary?.fulfillment?.store_options?.[0]?.location_name,
+    } : null;
+
+    res.json({
+      request:  { tcin, storeId, zip, url },
+      response: { status: apiRes.status, statusText: apiRes.statusText, elapsed: `${elapsed}ms`, headers: responseHeaders },
+      parsed,
+      raw: body,
+      parseError
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET alerts
 app.get("/api/alerts", (req, res) => {
   const { type } = req.query;
@@ -403,19 +456,50 @@ app.get("/api/stats", (req, res) => {
   });
 });
 
-// Manual poll trigger (useful for testing)
+// ─── Polling state ───────────────────────────────────────────────────────────
+let pollingActive = false;
+let pollInterval  = null;
+
+function startPolling() {
+  if (pollingActive) return;
+  pollingActive = true;
+  pollAll(); // poll immediately on start
+  pollInterval = setInterval(pollAll, 60 * 1000);
+  console.log("Polling STARTED");
+}
+
+function stopPolling() {
+  if (!pollingActive) return;
+  pollingActive = false;
+  if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  console.log("Polling PAUSED");
+}
+
+// GET polling status
+app.get("/api/polling", (req, res) => {
+  res.json({ active: pollingActive });
+});
+
+// POST start polling
+app.post("/api/polling/start", (req, res) => {
+  startPolling();
+  res.json({ active: true });
+});
+
+// POST pause polling
+app.post("/api/polling/pause", (req, res) => {
+  stopPolling();
+  res.json({ active: false });
+});
+
+// Manual single poll trigger
 app.post("/api/poll", async (req, res) => {
   await pollAll();
   res.json({ ok: true, polled: products.length });
 });
 
-// ─── Scheduler: poll every 3 minutes ────────────────────────────────────────
-cron.schedule("* * * * *", pollAll);
-
 // ─── Start ───────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`PokéTrack backend running on port ${PORT}`);
-  console.log(`Poll interval: every 1 minute`);
-  // Poll immediately on startup so dashboard shows real status right away
-  setTimeout(pollAll, 3000);
+  console.log(`Polling paused — press Start on the dashboard to begin`);
 });
