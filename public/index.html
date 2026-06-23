@@ -228,7 +228,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </button>
         </div>
-        <table><thead><tr><th>Product</th><th>Retailer</th><th>Store</th><th>Status</th><th>Qty</th><th>Last checked</th><th>Alert</th><th></th></tr></thead>
+        <table><thead><tr><th>Product</th><th>Retailer</th><th></th><th>Status</th><th>Qty</th><th>Last checked</th><th>Alert</th><th></th></tr></thead>
         <tbody id="dash-tbody"></tbody></table>
       </div>
     </div>
@@ -415,20 +415,53 @@ function renderTable() {
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">🔍</div><p>No products match.</p></div></td></tr>`;
     return;
   }
-  tbody.innerHTML = list.map(p => {
-    const storeLabel = `<span style="color:var(--text2);font-size:12px;">${p.storeName || p.retailer}</span>`;
-    return `
-    <tr>
-      <td style="font-weight:500;">${p.name}</td>
-      <td>${retailerBadge(p.retailer)}</td>
-      <td>${storeLabel}</td>
-      <td>${statusBadge(p.status)}</td>
-      <td style="color:${p.qty===0?'var(--text3)':p.qty<=2?'var(--amber)':'var(--green)'};">${p.qty===0?'—':p.qty}</td>
-      <td style="color:var(--text2);">${timeAgo(p.lastChecked)}</td>
-      <td><button class="watch-btn-sm ${p.watching?'on':''}" onclick="toggleWatch(${p.id})">${p.watching?'🔔 Watching':'+ Watch'}</button></td>
-      <td><button class="del-btn-sm" onclick="removeProduct(${p.id})">✕</button></td>
+
+  // Group by storeName
+  const groups = {};
+  for (const p of list) {
+    const key = p.storeName || p.retailer;
+    if (!groups[key]) groups[key] = { retailer: p.retailer, items: [] };
+    groups[key].items.push(p);
+  }
+
+  // Sort groups: Target stores first, then Best Buy
+  const sortedKeys = Object.keys(groups).sort((a, b) => {
+    const aT = groups[a].retailer === "Target" ? 0 : 1;
+    const bT = groups[b].retailer === "Target" ? 0 : 1;
+    if (aT !== bT) return aT - bT;
+    return a.localeCompare(b);
+  });
+
+  let html = "";
+  for (const key of sortedKeys) {
+    const group = groups[key];
+    const headerColor = group.retailer === "Target" ? "var(--red)" : "var(--blue)";
+    const inStockCount = group.items.filter(p => p.status === "In stock").length;
+    const stockSummary = inStockCount > 0
+      ? `<span style="color:var(--green);font-size:11px;margin-left:8px;">● ${inStockCount} in stock</span>`
+      : `<span style="color:var(--text3);font-size:11px;margin-left:8px;">○ none in stock</span>`;
+
+    html += `<tr>
+      <td colspan="8" style="background:rgba(255,255,255,0.03);padding:8px 16px;border-bottom:0.5px solid var(--border2);">
+        <span style="font-size:12px;font-weight:600;color:${headerColor};text-transform:uppercase;letter-spacing:0.06em;">${key}</span>
+        ${stockSummary}
+      </td>
     </tr>`;
-  }).join("");
+
+    for (const p of group.items) {
+      html += `<tr>
+        <td style="font-weight:500;padding-left:28px;">${p.name}</td>
+        <td>${retailerBadge(p.retailer)}</td>
+        <td></td>
+        <td>${statusBadge(p.status)}</td>
+        <td style="color:${p.qty===0?'var(--text3)':p.qty<=2?'var(--amber)':'var(--green)'};">${p.qty===0?'—':p.qty}</td>
+        <td style="color:var(--text2);">${timeAgo(p.lastChecked)}</td>
+        <td><button class="watch-btn-sm ${p.watching?'on':''}" onclick="toggleWatch(${p.id})">${p.watching?'🔔 Watching':'+ Watch'}</button></td>
+        <td><button class="del-btn-sm" onclick="removeProduct(${p.id})">✕</button></td>
+      </tr>`;
+    }
+  }
+  tbody.innerHTML = html;
 }
 
 async function toggleWatch(id) {

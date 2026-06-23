@@ -19,7 +19,11 @@ function uid() { return nextId++; }
 // ─── Pre-seeded products ─────────────────────────────────────────────────────
 // One row per product per store — gives a clear per-location view on the dashboard.
 const TARGET_STORES = [
-  { storeId: "2233", zip: "92084", name: "Vista" },
+  { storeId: "303",  zip: "92054", name: "Oceanside" },       // ~2mi
+  { storeId: "2871", zip: "92057", name: "Oceanside East" },  // ~4mi
+  { storeId: "1040", zip: "92083", name: "Vista North" },     // ~5mi
+  { storeId: "2165", zip: "92081", name: "Vista South" },     // ~6mi
+  { storeId: "1029", zip: "92024", name: "Encinitas" },       // ~14mi
 ];
 const BB_STORES = [
   { id: "437", name: "Oceanside" },
