@@ -3,37 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PokéTrack — Restock Tracker</title>
+<title>PokéTrack — Online Restock Tracker</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   :root {
-    --bg: #0f0f11;
-    --surface: #18181c;
-    --surface2: #222228;
-    --border: rgba(255,255,255,0.08);
-    --border2: rgba(255,255,255,0.14);
-    --text: #f0f0f2;
-    --text2: #9090a0;
-    --text3: #5a5a6a;
-    --accent: #e8c84a;
-    --accent-dim: rgba(232,200,74,0.12);
-    --accent-text: #c8a820;
-    --green: #34d399;
-    --green-dim: rgba(52,211,153,0.12);
-    --amber: #fbbf24;
-    --amber-dim: rgba(251,191,36,0.12);
-    --red: #f87171;
-    --red-dim: rgba(248,113,113,0.1);
-    --blue: #60a5fa;
-    --blue-dim: rgba(96,165,250,0.12);
-    --radius: 10px;
-    --radius-sm: 6px;
-    --nav-w: 220px;
+    --bg: #0f0f11; --surface: #18181c; --surface2: #222228;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f2; --text2: #9090a0; --text3: #5a5a6a;
+    --accent: #e8c84a; --accent-dim: rgba(232,200,74,0.12); --accent-text: #c8a820;
+    --green: #34d399; --green-dim: rgba(52,211,153,0.12);
+    --amber: #fbbf24; --amber-dim: rgba(251,191,36,0.12);
+    --red: #f87171; --red-dim: rgba(248,113,113,0.1);
+    --blue: #60a5fa; --blue-dim: rgba(96,165,250,0.12);
+    --purple: #a78bfa; --purple-dim: rgba(167,139,250,0.12);
+    --radius: 10px; --radius-sm: 6px; --nav-w: 220px;
   }
-
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; font-size: 14px; line-height: 1.6; }
 
+  /* NAV */
   nav { width: var(--nav-w); background: var(--surface); border-right: 0.5px solid var(--border); display: flex; flex-direction: column; padding: 1.5rem 1rem; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10; }
   .nav-logo { display: flex; align-items: center; gap: 10px; padding: 0 0.5rem 1.5rem; border-bottom: 0.5px solid var(--border); margin-bottom: 1.25rem; }
   .nav-logo-icon { width: 32px; height: 32px; background: var(--accent-dim); border: 0.5px solid var(--accent-text); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 16px; }
@@ -44,112 +31,113 @@
   .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
   .nav-item:hover { background: var(--surface2); color: var(--text); }
   .nav-item.active { background: var(--accent-dim); color: var(--accent); border: 0.5px solid rgba(232,200,74,0.2); }
-  .nav-badge { margin-left: auto; background: var(--green-dim); color: var(--green); font-size: 10px; padding: 2px 6px; border-radius: 99px; }
+  .nav-badge { margin-left: auto; background: var(--green-dim); color: var(--green); font-size: 10px; padding: 2px 6px; border-radius: 99px; min-width: 18px; text-align: center; }
   .nav-footer { margin-top: auto; padding-top: 1rem; border-top: 0.5px solid var(--border); }
-  .live-indicator { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 12px; color: var(--text2); }
   .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; flex-shrink: 0; }
+  .live-dot.paused { background: var(--text3); animation: none; }
+  .live-indicator { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 12px; color: var(--text2); }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-  main { margin-left: var(--nav-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  /* MAIN */
+  main { margin-left: var(--nav-w); flex: 1; display: flex; flex-direction: column; }
   .page { display: none; flex-direction: column; flex: 1; }
   .page.active { display: flex; }
-
-  .page-header { padding: 1.75rem 2rem 1.25rem; border-bottom: 0.5px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  .page-header { padding: 1.75rem 2rem 1.25rem; border-bottom: 0.5px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
   .page-header h1 { font-size: 20px; font-weight: 600; }
   .page-header p { font-size: 13px; color: var(--text2); margin-top: 2px; }
   .page-body { padding: 1.75rem 2rem; flex: 1; }
 
+  /* BUTTONS */
   .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); transition: background 0.15s; }
   .btn:hover { background: #2a2a32; }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-primary { background: var(--accent); color: #111; border-color: transparent; }
-  .btn-primary:hover { background: #d4b53a; }
+  .btn-primary:hover:not(:disabled) { background: #d4b53a; }
   .btn svg { width: 14px; height: 14px; }
+  .btn-danger { color: var(--red); border-color: rgba(248,113,113,0.2); background: transparent; }
 
-  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+  /* STATS */
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1.5rem; }
   .stat-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; }
   .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 6px; }
-  .stat-value { font-size: 26px; font-weight: 600; }
+  .stat-value { font-size: 28px; font-weight: 600; }
   .stat-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
-  .stat-value.green { color: var(--green); }
-  .stat-value.amber { color: var(--amber); }
-  .stat-value.accent { color: var(--accent); }
+  .green { color: var(--green); } .amber { color: var(--amber); } .accent { color: var(--accent); }
 
-  .table-wrap { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .table-toolbar { display: flex; align-items: center; gap: 10px; padding: 0.875rem 1rem; border-bottom: 0.5px solid var(--border); flex-wrap: wrap; }
-  .table-toolbar input, .table-toolbar select { background: var(--surface2); border: 0.5px solid var(--border2); color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 13px; outline: none; }
-  .table-toolbar input { flex: 1; min-width: 140px; }
-  .table-toolbar input::placeholder { color: var(--text3); }
-  .table-toolbar select option { background: var(--surface2); }
-  table { width: 100%; border-collapse: collapse; }
-  th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); padding: 10px 16px; text-align: left; font-weight: 500; border-bottom: 0.5px solid var(--border); }
-  td { padding: 12px 16px; border-bottom: 0.5px solid var(--border); font-size: 13px; vertical-align: middle; }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: rgba(255,255,255,0.02); }
+  /* PRODUCT LIST */
+  .product-list { display: flex; flex-direction: column; gap: 10px; }
+  .product-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; display: flex; align-items: center; gap: 14px; transition: border-color 0.2s; }
+  .product-card.instock { border-left: 3px solid var(--green); }
+  .product-card.queue { border-left: 3px solid var(--purple); }
+  .product-card.oos { border-left: 3px solid var(--text3); }
+  .product-card.checking { border-left: 3px solid var(--accent); }
+  .product-card.blocked { border-left: 3px solid var(--amber); }
+  .product-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .product-icon.target { background: rgba(204,0,0,0.15); }
+  .product-icon.walmart { background: var(--blue-dim); }
+  .product-icon.pokemon { background: var(--purple-dim); }
+  .product-info { flex: 1; min-width: 0; }
+  .product-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .product-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+  .product-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
+  /* BADGES */
   .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 500; }
   .badge-green { background: var(--green-dim); color: var(--green); }
-  .badge-amber { background: var(--amber-dim); color: var(--amber); }
+  .badge-purple { background: var(--purple-dim); color: var(--purple); }
   .badge-gray { background: rgba(255,255,255,0.06); color: var(--text2); }
+  .badge-amber { background: var(--amber-dim); color: var(--amber); }
   .badge-checking { background: var(--accent-dim); color: var(--accent); }
   .badge-target { background: rgba(204,0,0,0.15); color: #ff6b6b; }
-  .badge-bestbuy { background: var(--blue-dim); color: var(--blue); }
+  .badge-walmart { background: var(--blue-dim); color: var(--blue); }
+  .badge-pokemon { background: var(--purple-dim); color: var(--purple); }
 
-  .watch-btn-sm { padding: 4px 10px; border-radius: var(--radius-sm); font-size: 12px; cursor: pointer; border: 0.5px solid var(--border2); background: transparent; color: var(--text2); transition: all 0.15s; }
-  .watch-btn-sm.on { background: var(--green-dim); color: var(--green); border-color: rgba(52,211,153,0.3); }
-  .del-btn-sm { padding: 4px 10px; border-radius: var(--radius-sm); font-size: 12px; cursor: pointer; border: 0.5px solid rgba(248,113,113,0.2); background: transparent; color: var(--red); }
+  /* ADD FORM */
+  .add-form { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.5rem; max-width: 560px; }
+  .add-form h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .add-form .sub { font-size: 13px; color: var(--text2); margin-bottom: 1.25rem; }
+  .add-form label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 5px; margin-top: 14px; }
+  .add-form label:first-of-type { margin-top: 0; }
+  .add-form input { width: 100%; background: var(--surface2); border: 0.5px solid var(--border2); color: var(--text); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 13px; outline: none; transition: border-color 0.15s; font-family: inherit; }
+  .add-form input:focus { border-color: var(--accent); }
+  .add-form input::placeholder { color: var(--text3); }
+  .detected-retailer { font-size: 12px; margin-top: 6px; color: var(--text2); min-height: 18px; }
 
-  .alerts-filters { display: flex; gap: 8px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  /* ALERTS */
+  .alert-list { display: flex; flex-direction: column; gap: 8px; }
+  .alert-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; display: flex; align-items: flex-start; gap: 12px; }
+  .alert-card.restock { border-left: 3px solid var(--green); }
+  .alert-card.queue   { border-left: 3px solid var(--purple); }
+  .alert-card.soldout { border-left: 3px solid var(--text3); }
+  .alert-icon { width: 32px; height: 32px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .alert-body { flex: 1; }
+  .alert-title { font-size: 13px; font-weight: 500; }
+  .alert-meta { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .alert-time { font-size: 11px; color: var(--text3); margin-left: auto; white-space: nowrap; }
   .filter-chip { padding: 5px 12px; border-radius: 99px; font-size: 12px; cursor: pointer; border: 0.5px solid var(--border2); background: transparent; color: var(--text2); transition: all 0.15s; }
   .filter-chip.active { background: var(--accent-dim); color: var(--accent); border-color: rgba(232,200,74,0.3); }
 
-  .alert-list { display: flex; flex-direction: column; gap: 8px; }
-  .alert-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; display: flex; align-items: flex-start; gap: 12px; }
-  .alert-card.restock { border-left: 2px solid var(--green); }
-  .alert-card.low { border-left: 2px solid var(--amber); }
-  .alert-card.soldout { border-left: 2px solid var(--text3); }
-  .alert-icon { width: 32px; height: 32px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
-  .alert-icon.green { background: var(--green-dim); }
-  .alert-icon.amber { background: var(--amber-dim); }
-  .alert-icon.gray { background: var(--surface2); }
-  .alert-body { flex: 1; }
-  .alert-title { font-size: 13px; font-weight: 500; }
-  .alert-meta { font-size: 12px; color: var(--text2); margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; }
-  .alert-time { font-size: 11px; color: var(--text3); margin-left: auto; flex-shrink: 0; white-space: nowrap; }
+  /* EMPTY */
+  .empty { text-align: center; padding: 4rem 1rem; color: var(--text3); }
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+  .empty p { font-size: 13px; }
+  .empty .hint { margin-top: 8px; font-size: 12px; color: var(--text3); }
 
-  .add-sections { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-  .add-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.5rem; }
-  .add-card h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-  .add-card .sub { font-size: 13px; color: var(--text2); margin-bottom: 1.25rem; }
-  .add-card label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 5px; margin-top: 12px; }
-  .add-card label:first-of-type { margin-top: 0; }
-  .add-card input, .add-card select { width: 100%; background: var(--surface2); border: 0.5px solid var(--border2); color: var(--text); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; outline: none; transition: border-color 0.15s; }
-  .add-card input:focus, .add-card select:focus { border-color: var(--accent); }
-  .add-card input::placeholder { color: var(--text3); }
-  .add-card select option { background: var(--surface2); }
-  .add-card .btn { margin-top: 1rem; width: 100%; justify-content: center; }
-  .recently-added { margin-top: 1.5rem; }
-  .recently-added h2 { font-size: 14px; font-weight: 500; color: var(--text2); margin-bottom: 1rem; }
-
-  .notify-banner { background: var(--accent-dim); border: 0.5px solid rgba(232,200,74,0.25); border-radius: var(--radius); padding: 0.875rem 1.25rem; display: flex; align-items: center; gap: 12px; margin-bottom: 1.5rem; font-size: 13px; color: var(--accent); }
-  .notify-banner svg { width: 18px; height: 18px; flex-shrink: 0; }
-
-  .error-banner { background: var(--red-dim); border: 0.5px solid rgba(248,113,113,0.2); border-radius: var(--radius); padding: 0.875rem 1.25rem; margin-bottom: 1.5rem; font-size: 13px; color: var(--red); display: none; }
-
-  #toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--surface2); border: 0.5px solid var(--border2); color: var(--text); border-radius: var(--radius); padding: 10px 16px; font-size: 13px; opacity: 0; transform: translateY(8px); transition: all 0.2s; pointer-events: none; z-index: 100; max-width: 320px; }
+  /* TOAST */
+  #toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--surface2); border: 0.5px solid var(--border2); color: var(--text); border-radius: var(--radius); padding: 10px 16px; font-size: 13px; opacity: 0; transform: translateY(8px); transition: all 0.2s; pointer-events: none; z-index: 100; max-width: 320px; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
   #toast.show { opacity: 1; transform: translateY(0); }
 
-  .empty { text-align: center; padding: 3rem 1rem; color: var(--text3); }
-  .empty-icon { font-size: 32px; margin-bottom: 10px; }
-  .section-title { font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);font-weight:500; }
-  .spin { display: inline-block; animation: spin 1s linear infinite; }
+  .instock-banner { background: var(--green-dim); border: 0.5px solid rgba(52,211,153,0.3); border-radius: var(--radius); padding: 1rem 1.25rem; display: flex; align-items: center; gap: 12px; margin-bottom: 1.25rem; animation: flashBorder 1s ease-in-out infinite alternate; }
+  @keyframes flashBorder { from { border-color: rgba(52,211,153,0.3); } to { border-color: rgba(52,211,153,0.9); box-shadow: 0 0 16px rgba(52,211,153,0.2); } }
+  .buy-btn { background: var(--green); color: #000; border: none; padding: 8px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .buy-btn:hover { background: #2eb87e; }
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); font-weight: 500; margin-bottom: 12px; }
 
-  @media (max-width: 800px) {
-    nav { display: none; }
-    main { margin-left: 0; }
+  @media (max-width: 700px) {
+    nav { display: none; } main { margin-left: 0; }
     .stats-row { grid-template-columns: 1fr 1fr; }
-    .add-sections { grid-template-columns: 1fr; }
     .page-body { padding: 1rem; }
     .page-header { padding: 1rem; }
   }
@@ -162,32 +150,32 @@
     <div class="nav-logo-icon">🎴</div>
     <div>
       <div class="nav-logo-text">PokéTrack</div>
-      <div class="nav-logo-sub">Restock tracker</div>
+      <div class="nav-logo-sub">Online restock tracker</div>
     </div>
   </div>
+
   <div class="nav-section">Monitor</div>
   <button class="nav-item active" onclick="showPage('dashboard',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-    Dashboard <span class="nav-badge" id="nav-instock">0</span>
+    Dashboard
+    <span class="nav-badge" id="nav-instock">0</span>
   </button>
   <button class="nav-item" onclick="showPage('alerts',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-    Alerts &amp; history <span class="nav-badge" id="nav-alerts">0</span>
+    Alerts
+    <span class="nav-badge" id="nav-alerts">0</span>
   </button>
+
   <div class="nav-section">Products</div>
   <button class="nav-item" onclick="showPage('add',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-    Search &amp; add
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+    Add product
   </button>
-  <div class="nav-section">Dev</div>
-  <button class="nav-item" onclick="showPage('debug',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 8v4l3 3"/></svg>
-    API diagnostics
-  </button>
+
   <div class="nav-footer">
     <div class="live-indicator">
-      <div class="live-dot" id="live-dot"></div>
-      <span id="live-label">Connecting…</span>
+      <div class="live-dot paused" id="live-dot"></div>
+      <span id="live-label">Paused</span>
     </div>
   </div>
 </nav>
@@ -196,64 +184,72 @@
   <!-- DASHBOARD -->
   <div class="page active" id="page-dashboard">
     <div class="page-header">
-      <div><h1>Dashboard</h1><p id="poll-status-text">Target &amp; Best Buy · Pokémon TCG · polling paused</p></div>
-      <div style="display:flex;gap:8px;">
+      <div>
+        <h1>Dashboard</h1>
+        <p id="poll-status-text">Online availability · Target, Walmart, Pokémon Center · paused</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn" id="poll-btn" onclick="togglePolling()">
-          <svg id="poll-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <svg id="poll-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <span id="poll-label">Start polling</span>
         </button>
+        <button class="btn" onclick="pollOnce()" title="Check now">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Check now
+        </button>
         <button class="btn btn-primary" onclick="showPage('add',document.querySelectorAll('.nav-item')[2])">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          Track product
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 5v14M5 12h14"/></svg>
+          Add product
         </button>
       </div>
     </div>
     <div class="page-body">
-      <div id="notify-banner" class="notify-banner" style="display:none;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        <span style="flex:1;">Enable push notifications to get instant restock alerts.</span>
-        <button class="btn btn-primary" style="padding:5px 12px;font-size:12px;" onclick="requestNotifications()">Enable</button>
-        <button onclick="document.getElementById('notify-banner').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:20px;padding:0 0 0 8px;">×</button>
-      </div>
-      <div id="api-error" class="error-banner">⚠️ Cannot reach the backend — check your Render deployment is running.</div>
-      <div class="stats-row">
-        <div class="stat-card"><div class="stat-label">Tracking</div><div class="stat-value accent" id="s-total">—</div><div class="stat-sub">products</div></div>
-        <div class="stat-card"><div class="stat-label">In stock</div><div class="stat-value green" id="s-instock">—</div><div class="stat-sub">right now</div></div>
-        <div class="stat-card"><div class="stat-label">Low stock</div><div class="stat-value amber" id="s-low">—</div><div class="stat-sub">grab it fast</div></div>
-        <div class="stat-card"><div class="stat-label">Restocks today</div><div class="stat-value" id="s-today">—</div><div class="stat-sub">detected</div></div>
-      </div>
-      <div class="table-wrap">
-        <div class="table-toolbar">
-          <input type="text" id="d-search" placeholder="Search products…" oninput="renderTable()">
-          <select id="d-retailer" onchange="renderTable()">
-            <option value="all">All retailers</option>
-            <option value="Target">Target</option>
-            <option value="Best Buy">Best Buy</option>
-          </select>
-          <select id="d-status" onchange="renderTable()">
-            <option value="all">All status</option>
-            <option value="In stock">In stock</option>
-            <option value="Low stock">Low stock</option>
-            <option value="Out of stock">Out of stock</option>
-          </select>
-          <button class="btn" onclick="loadAll()" title="Refresh">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-          </button>
+      <div id="instock-banner" style="display:none;" class="instock-banner">
+        <span style="font-size:22px;">🎉</span>
+        <div style="flex:1;">
+          <div style="font-weight:600;color:var(--green);font-size:14px;" id="instock-banner-title">In stock!</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;" id="instock-banner-sub"></div>
         </div>
-        <table><thead><tr><th>Product</th><th></th><th>Status</th><th>Qty</th><th>Last checked</th><th>Alert</th><th></th></tr></thead>
-        <tbody id="dash-tbody"></tbody></table>
+        <a id="instock-banner-btn" href="#" target="_blank" class="buy-btn">🛒 Buy Now</a>
+        <button onclick="dismissBanner()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0 0 0 8px;">×</button>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Tracking</div>
+          <div class="stat-value accent" id="s-total">0</div>
+          <div class="stat-sub">products</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">In stock online</div>
+          <div class="stat-value green" id="s-instock">0</div>
+          <div class="stat-sub">available now</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Restocks today</div>
+          <div class="stat-value" id="s-restocks">0</div>
+          <div class="stat-sub">detected</div>
+        </div>
+      </div>
+      <div class="product-list" id="product-list">
+        <div class="empty">
+          <div class="empty-icon">🎴</div>
+          <p>No products tracked yet.</p>
+          <p class="hint">Click "Add product" to paste a Target, Walmart, or Pokémon Center URL.</p>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- ALERTS -->
   <div class="page" id="page-alerts">
-    <div class="page-header"><div><h1>Alerts &amp; history</h1><p>All detected stock changes — newest first</p></div></div>
+    <div class="page-header">
+      <div><h1>Alerts</h1><p>Restock events detected while polling</p></div>
+    </div>
     <div class="page-body">
-      <div class="alerts-filters">
+      <div style="display:flex;gap:8px;margin-bottom:1.25rem;">
         <button class="filter-chip active" data-f="all" onclick="filterAlerts(this)">All</button>
         <button class="filter-chip" data-f="restock" onclick="filterAlerts(this)">Restocks</button>
-        <button class="filter-chip" data-f="low" onclick="filterAlerts(this)">Low stock</button>
+        <button class="filter-chip" data-f="queue" onclick="filterAlerts(this)">Queue alerts</button>
         <button class="filter-chip" data-f="soldout" onclick="filterAlerts(this)">Sold out</button>
       </div>
       <div class="alert-list" id="alert-list"></div>
@@ -262,323 +258,259 @@
 
   <!-- ADD -->
   <div class="page" id="page-add">
-    <div class="page-header"><div><h1>Search &amp; add products</h1><p>Select a product or paste a URL to start tracking</p></div></div>
-    <div class="page-body">
-      <div class="add-sections">
-        <div class="add-card">
-          <h2>Select a product</h2>
-          <p class="sub">Pick a set and SKU — the product name fills in automatically.</p>
-          <label>Product line</label>
-          <select id="sel-line" onchange="updateSkuDropdown()">
-            <option value="">— Select a set —</option>
-            <optgroup label="Mega Evolution Era (2026)">
-              <option value="Mega Evolution—Chaos Rising">Chaos Rising</option>
-              <option value="Mega Evolution—Perfect Order">Perfect Order</option>
-              <option value="Mega Evolution—Ascended Heroes">Ascended Heroes</option>
-            </optgroup>
-            <optgroup label="Scarlet &amp; Violet Era (2023–2025)">
-              <option value="Prismatic Evolutions">Prismatic Evolutions</option>
-              <option value="Surging Sparks">Surging Sparks</option>
-              <option value="Stellar Crown">Stellar Crown</option>
-              <option value="Shrouded Fable">Shrouded Fable</option>
-              <option value="Twilight Masquerade">Twilight Masquerade</option>
-              <option value="Temporal Forces">Temporal Forces</option>
-              <option value="Paldean Fates">Paldean Fates</option>
-              <option value="Paradox Rift">Paradox Rift</option>
-              <option value="Pokemon 151">Pokémon 151</option>
-              <option value="Obsidian Flames">Obsidian Flames</option>
-              <option value="Paldea Evolved">Paldea Evolved</option>
-              <option value="Scarlet &amp; Violet Base">Scarlet &amp; Violet Base</option>
-            </optgroup>
-          </select>
-          <label>SKU / Product type</label>
-          <select id="sel-sku" onchange="updateProductName()">
-            <option value="">— Select a set first —</option>
-          </select>
-          <label>Product name (auto-filled)</label>
-          <input type="text" id="sel-name" placeholder="Will fill automatically…" readonly style="opacity:0.7;cursor:default;">
-          <label>Retailer</label>
-          <select id="sel-retailer">
-            <option value="Target">Target</option>
-            <option value="Best Buy">Best Buy</option>
-          </select>
-          <label>Product URL</label>
-          <input type="url" id="sel-url" placeholder="https://www.target.com/p/…" oninput="detectRetailerFromSel()">
-          <button class="btn btn-primary" id="sel-btn" onclick="addBySelect()">Track this product</button>
-        </div>
-        <div class="add-card">
-          <h2>Paste a URL manually</h2>
-          <p class="sub">For any product not in the list — paste a Target or Best Buy link.</p>
-          <label>Custom product name</label>
-          <input type="text" id="url-name" placeholder="e.g. Charizard ex Super Premium Collection">
-          <label>Product URL</label>
-          <input type="url" id="url-input" placeholder="https://www.target.com/p/…" oninput="detectRetailer()">
-          <label>Retailer (auto-detected)</label>
-          <select id="url-retailer">
-            <option value="">Paste a URL above</option>
-            <option value="Target">Target</option>
-            <option value="Best Buy">Best Buy</option>
-          </select>
-          <button class="btn" id="url-btn" onclick="addByURL()">Track this product</button>
-        </div>
-      </div>
-      <div class="recently-added">
-        <h2>Currently tracking</h2>
-        <div class="table-wrap">
-          <table><thead><tr><th>Product</th><th>UPC</th><th>Retailer</th><th>Added</th><th></th></tr></thead>
-          <tbody id="recent-tbody"></tbody></table>
-        </div>
-      </div>
-    </div>
-  </div>
-  <!-- DEBUG -->
-  <div class="page" id="page-debug">
     <div class="page-header">
-      <div><h1>API diagnostics</h1><p>Test Target's inventory API and configure backend connection</p></div>
+      <div><h1>Add product</h1><p>Paste a product URL from Target, Walmart, or Pokémon Center</p></div>
     </div>
     <div class="page-body">
+      <div class="add-form">
+        <h2>Track a new product</h2>
+        <p class="sub">Paste the product page URL and give it a name — we'll check it on every poll.</p>
+        <label>Product name</label>
+        <input type="text" id="add-name" placeholder="e.g. Chaos Rising Elite Trainer Box">
+        <label>Product URL</label>
+        <input type="url" id="add-url" placeholder="https://www.target.com/p/… or walmart.com/ip/…" oninput="detectRetailer()">
+        <div class="detected-retailer" id="detected-retailer"></div>
+        <button class="btn btn-primary" id="add-btn" onclick="addProduct()" style="margin-top:1.25rem;width:100%;justify-content:center;">
+          Add to tracker
+        </button>
+      </div>
 
-      <div class="add-sections" style="margin-bottom:1.5rem;">
-        <div class="add-card">
-          <h2>Backend connection</h2>
-          <p class="sub">Point the frontend to your local Mac backend via ngrok instead of Render.</p>
-          <label>ngrok URL (leave blank to use Render)</label>
-          <input type="url" id="ngrok-url" placeholder="https://abc123.ngrok-free.app">
-          <div style="display:flex;gap:8px;margin-top:1rem;">
-            <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveNgrok()">Save & reconnect</button>
-            <button class="btn" style="justify-content:center;" onclick="clearNgrok()">Clear</button>
+      <div style="margin-top:2rem;" id="tracked-section">
+        <div class="section-title">Currently tracking</div>
+        <div class="product-list" id="tracked-list">
+          <div class="empty" style="padding:2rem 1rem;">
+            <p>No products added yet.</p>
           </div>
-          <div id="ngrok-status" style="margin-top:10px;font-size:12px;color:var(--text2);"></div>
-        </div>
-
-        <div class="add-card">
-          <h2>How to run locally</h2>
-          <p class="sub">Run the backend on your Mac so Target API calls come from your home IP.</p>
-          <label>Step 1 — Install ngrok</label>
-          <input type="text" value="brew install ngrok" readonly style="opacity:0.7;cursor:text;font-family:monospace;font-size:12px;">
-          <label>Step 2 — Start the backend</label>
-          <input type="text" value="node src/server.js" readonly style="opacity:0.7;cursor:text;font-family:monospace;font-size:12px;">
-          <label>Step 3 — Open a tunnel</label>
-          <input type="text" value="ngrok http 3000" readonly style="opacity:0.7;cursor:text;font-family:monospace;font-size:12px;">
-          <p class="sub" style="margin-top:10px;margin-bottom:0;">Copy the <strong style="color:var(--text);">https://</strong> URL ngrok gives you, paste it above, and hit Save.</p>
-        </div>
-      </div>
-      <div class="add-card" style="max-width:600px;margin-bottom:1.5rem;">
-        <h2>Test Target API</h2>
-        <p class="sub">Fires a single request to Target's RedSky API and shows the full response — useful for verifying the API is reachable and what inventory data looks like.</p>
-        <label>TCIN</label>
-        <select id="debug-tcin">
-          <option value="95298172">95298172 — Chaos Rising Booster Bundle</option>
-          <option value="1011710073">1011710073 — Chaos Rising ETB</option>
-        </select>
-        <label>Store</label>
-        <select id="debug-store">
-          <option value="303|92054">303 — Target Oceanside</option>
-          <option value="2871|92057">2871 — Target Oceanside East</option>
-          <option value="1040|92083">1040 — Target Vista North</option>
-          <option value="2165|92081">2165 — Target Vista South</option>
-          <option value="1029|92024">1029 — Target Encinitas</option>
-        </select>
-        <button class="btn btn-primary" id="debug-btn" onclick="runDebug()" style="margin-top:1rem;">Run test</button>
-      </div>
-
-      <div id="debug-result" style="display:none;">
-        <div class="section-title" style="margin-bottom:10px;">Result</div>
-        <div class="table-wrap" style="margin-bottom:1rem;">
-          <table>
-            <thead><tr><th>Field</th><th>Value</th></tr></thead>
-            <tbody id="debug-summary-tbody"></tbody>
-          </table>
-        </div>
-        <div class="section-title" style="margin-bottom:10px;">Raw JSON response</div>
-        <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:1rem;overflow:auto;max-height:400px;">
-          <pre id="debug-raw" style="font-size:11px;color:var(--text2);white-space:pre-wrap;word-break:break-all;margin:0;"></pre>
         </div>
       </div>
     </div>
   </div>
-
 </main>
 
 <div id="toast"></div>
 
 <script>
-// ── Config ──────────────────────────────────────────────────────────────────
-// To run the backend locally via ngrok:
-// 1. Run server.js on your Mac: node src/server.js
-// 2. Install ngrok: brew install ngrok
-// 3. Run: ngrok http 3000
-// 4. Copy the https URL (e.g. https://abc123.ngrok-free.app)
-// 5. Open browser console on your Render URL and run:
-//    localStorage.setItem('POKETRACK_API', 'https://abc123.ngrok-free.app')
-// 6. Refresh — the frontend will now use your local backend
-// To revert back to Render: localStorage.removeItem('POKETRACK_API')
-
+// ── Config ────────────────────────────────────────────────────────────────────
 const API = localStorage.getItem('POKETRACK_API') ||
-  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-    ? "http://localhost:3000"
-    : "");
+  (["localhost","127.0.0.1"].includes(window.location.hostname) ? "http://localhost:3000" : "");
 
-// ── State ───────────────────────────────────────────────────────────────────
-let products = [];
-let alerts   = [];
-let alertFilter = "all";
+// ── State ─────────────────────────────────────────────────────────────────────
+let products      = [];
+let alerts        = [];
+let alertFilter   = "all";
+let pollingActive = false;
+let prevInStock   = new Set(); // track which product IDs were already in stock
+let bannerDismissed = false;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Sound alerts ──────────────────────────────────────────────────────────────
+function playRestockChime() {
+  try {
+    const ctx   = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C E G C — ascending
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = freq; osc.type = "sine";
+      const t = ctx.currentTime + i * 0.12;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.3, t + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      osc.start(t); osc.stop(t + 0.35);
+    });
+  } catch(e) { console.warn("Audio error:", e); }
+}
+
+function playQueueChime() {
+  try {
+    // Urgent repeating pulse for queue alert
+    const ctx   = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [880, 880, 880, 1108.73]; // A A A C# — urgent
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = freq; osc.type = "square";
+      const t = ctx.currentTime + i * 0.15;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.15, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      osc.start(t); osc.stop(t + 0.12);
+    });
+  } catch(e) { console.warn("Audio error:", e); }
+}
+
+// ── Tab title ─────────────────────────────────────────────────────────────────
+let titleInterval = null;
+function flashTabTitle(msg) {
+  let flashing = true;
+  clearInterval(titleInterval);
+  titleInterval = setInterval(() => {
+    document.title = flashing ? msg : "PokéTrack — Online Restock Tracker";
+    flashing = !flashing;
+  }, 800);
+}
+function resetTabTitle() {
+  clearInterval(titleInterval);
+  document.title = "PokéTrack — Online Restock Tracker";
+}
+
+// ── In-stock / queue banner ───────────────────────────────────────────────────
+function showInstockBanner(product) {
+  const isQueue = product.status === "Queue is live!";
+  const banner  = document.getElementById("instock-banner");
+  banner.style.borderColor = isQueue ? "rgba(167,139,250,0.5)" : "";
+  banner.style.background  = isQueue ? "var(--purple-dim)"     : "";
+  document.getElementById("instock-banner-title").textContent =
+    isQueue ? `⏰ Pokémon Center queue is live for ${product.name}!`
+            : `🎉 ${product.name} is in stock!`;
+  document.getElementById("instock-banner-sub").textContent =
+    isQueue ? "The queue is open — join now before it fills up"
+            : `Available now at ${product.retailer} — click to buy`;
+  document.getElementById("instock-banner-btn").textContent =
+    isQueue ? "⏰ Join Queue" : "🛒 Buy Now";
+  document.getElementById("instock-banner-btn").href = product.url;
+  banner.style.display = "flex";
+  bannerDismissed = false;
+}
+function dismissBanner() {
+  document.getElementById("instock-banner").style.display = "none";
+  bannerDismissed = true;
+  resetTabTitle();
+}
+
+// ── Restock detector ──────────────────────────────────────────────────────────
+function detectRestocks(newProducts) {
+  const nowActive  = newProducts.filter(p => p.status === "In stock online" || p.status === "Queue is live!");
+  const newlyActive = nowActive.filter(p => !prevInStock.has(p.id));
+
+  if (newlyActive.length > 0) {
+    const first   = newlyActive[0];
+    const isQueue = first.status === "Queue is live!";
+    isQueue ? playQueueChime() : playRestockChime();
+    flashTabTitle(isQueue ? `⏰ QUEUE LIVE! — ${first.name}` : `🎉 IN STOCK! — ${first.name}`);
+    if (!bannerDismissed) showInstockBanner(first);
+  }
+
+  if (nowActive.length === 0) resetTabTitle();
+  prevInStock = new Set(nowActive.map(p => p.id));
+}
+
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function timeAgo(iso) {
-  if (!iso) return "—";
-  const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
-  if (diff < 60)  return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
-  return `${Math.floor(diff/86400)}d ago`;
+  if (!iso) return "never";
+  const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (s < 60)   return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return new Date(iso).toLocaleDateString();
 }
-function statusBadge(s) {
-  if (s === "In stock")    return `<span class="badge badge-green">● In stock</span>`;
-  if (s === "Low stock")   return `<span class="badge badge-amber">● Low stock</span>`;
-  if (s === "Checking…")   return `<span class="badge badge-checking"><span class="spin">↻</span> Checking</span>`;
-  return `<span class="badge badge-gray">○ Out of stock</span>`;
-}
-function retailerBadge(r) {
-  return r === "Target"
-    ? `<span class="badge badge-target">Target</span>`
-    : `<span class="badge badge-bestbuy">Best Buy</span>`;
-}
-function showToast(msg, dur = 3000) {
+function showToast(msg, dur=3000) {
   const t = document.getElementById("toast");
   t.textContent = msg; t.classList.add("show");
-  clearTimeout(t._t);
-  t._t = setTimeout(() => t.classList.remove("show"), dur);
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), dur);
 }
-function setLive(ok) {
-  document.getElementById("live-dot").style.background = ok ? "var(--green)" : "var(--red)";
-  document.getElementById("live-label").textContent = ok ? "Live" : "Backend offline";
-  document.getElementById("api-error").style.display = ok ? "none" : "block";
-}
-
-// ── API calls ────────────────────────────────────────────────────────────────
-async function apiFetch(path, opts = {}) {
-  const res = await fetch(API + path, {
-    headers: { "Content-Type": "application/json" },
-    ...opts
-  });
+async function apiFetch(path, opts={}) {
+  const res = await fetch(API + path, { headers: {"Content-Type":"application/json"}, ...opts });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
-async function loadAll() {
-  try {
-    [products, alerts] = await Promise.all([
-      apiFetch("/api/products"),
-      apiFetch("/api/alerts")
-    ]);
-    const stats = await apiFetch("/api/stats");
-    document.getElementById("s-total").textContent   = stats.total;
-    document.getElementById("s-instock").textContent = stats.inStock;
-    document.getElementById("s-low").textContent     = stats.lowStock;
-    document.getElementById("s-today").textContent   = stats.today;
-    document.getElementById("nav-instock").textContent = stats.inStock;
-    document.getElementById("nav-alerts").textContent  = alerts.length;
-    setLive(true);
-    renderTable();
-    renderAlertList();
-    renderRecent();
-  } catch (e) {
-    setLive(false);
-    console.error("API error:", e);
-  }
+// ── Retailer helpers ──────────────────────────────────────────────────────────
+function retailerBadge(r) {
+  if (r === "Target")         return `<span class="badge badge-target">Target</span>`;
+  if (r === "Walmart")        return `<span class="badge badge-walmart">Walmart</span>`;
+  if (r === "Pokemon Center") return `<span class="badge badge-pokemon">Pokémon Center</span>`;
+  return `<span class="badge badge-gray">${r}</span>`;
+}
+function retailerIcon(r) {
+  if (r === "Target")         return `<div class="product-icon target">🎯</div>`;
+  if (r === "Walmart")        return `<div class="product-icon walmart">🛒</div>`;
+  if (r === "Pokemon Center") return `<div class="product-icon pokemon">🎴</div>`;
+  return `<div class="product-icon">🛍️</div>`;
+}
+function statusBadge(s) {
+  if (s === "In stock online") return `<span class="badge badge-green">● In stock online</span>`;
+  if (s === "Queue is live!") return `<span class="badge badge-purple">⏰ Queue is live!</span>`;
+  if (s === "Checking…")       return `<span class="badge badge-checking"><span class="spin">↻</span> Checking</span>`;
+  if (s === "API blocked")     return `<span class="badge badge-amber">⚠ API blocked</span>`;
+  return `<span class="badge badge-gray">○ ${s}</span>`;
+}
+function cardClass(s) {
+  if (s === "In stock online") return "instock";
+  if (s === "Queue is live!")  return "queue";
+  if (s === "Checking…")       return "checking";
+  if (s === "API blocked")     return "blocked";
+  return "oos";
 }
 
-// ── Dashboard table ───────────────────────────────────────────────────────────
-function renderTable() {
-  const q   = document.getElementById("d-search").value.toLowerCase();
-  const ret = document.getElementById("d-retailer").value;
-  const st  = document.getElementById("d-status").value;
-  const list = products.filter(p =>
-    (p.name.toLowerCase().includes(q) || (p.upc||"").includes(q)) &&
-    (ret === "all" || p.retailer === ret) &&
-    (st  === "all" || p.status   === st)
-  );
-  const tbody = document.getElementById("dash-tbody");
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">🔍</div><p>No products match.</p></div></td></tr>`;
+// ── Render products ───────────────────────────────────────────────────────────
+function renderProducts() {
+  const el = document.getElementById("product-list");
+  if (!products.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🎴</div><p>No products tracked yet.</p><p class="hint">Click "Add product" to get started.</p></div>`;
     return;
   }
+  el.innerHTML = products.map(p => `
+    <div class="product-card ${cardClass(p.status)}">
+      ${retailerIcon(p.retailer)}
+      <div class="product-info">
+        <div class="product-name">${p.name}</div>
+        <div class="product-meta">
+          ${retailerBadge(p.retailer)}
+          ${statusBadge(p.status)}
+          <span style="font-size:11px;color:var(--text3);">checked ${timeAgo(p.lastChecked)}</span>
+        </div>
+      </div>
+      <div class="product-actions">
+        ${p.status === "In stock online"
+          ? `<a href="${p.url}" target="_blank" class="buy-btn">🛒 Buy Now</a>`
+          : p.status === "Queue is live!"
+          ? `<a href="${p.url}" target="_blank" class="buy-btn" style="background:var(--purple);color:#fff;">⏰ Join Queue</a>`
+          : `<a href="${p.url}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px;">
+               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:12px;height:12px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+               View
+             </a>`
+        }
+        <button class="btn btn-danger" style="font-size:12px;padding:5px 10px;" onclick="removeProduct(${p.id})">✕</button>
+      </div>
+    </div>`).join("");
+}
 
-  // Group by storeName
-  const groups = {};
-  for (const p of list) {
-    const key = p.storeName || p.retailer;
-    if (!groups[key]) groups[key] = { retailer: p.retailer, items: [] };
-    groups[key].items.push(p);
+function renderTrackedList() {
+  const el = document.getElementById("tracked-list");
+  if (!products.length) {
+    el.innerHTML = `<div class="empty" style="padding:2rem 1rem;"><p>No products added yet.</p></div>`;
+    return;
   }
-
-  // Sort groups: Target stores first, then Best Buy
-  const sortedKeys = Object.keys(groups).sort((a, b) => {
-    const aT = groups[a].retailer === "Target" ? 0 : 1;
-    const bT = groups[b].retailer === "Target" ? 0 : 1;
-    if (aT !== bT) return aT - bT;
-    return a.localeCompare(b);
-  });
-
-  let html = "";
-  for (const key of sortedKeys) {
-    const group = groups[key];
-    const headerColor = group.retailer === "Target" ? "var(--red)" : "var(--blue)";
-    const inStockCount = group.items.filter(p => p.status === "In stock").length;
-    const stockSummary = inStockCount > 0
-      ? `<span style="color:var(--green);font-size:11px;margin-left:8px;">● ${inStockCount} in stock</span>`
-      : `<span style="color:var(--text3);font-size:11px;margin-left:8px;">○ none in stock</span>`;
-
-    html += `<tr>
-      <td colspan="8" style="background:rgba(255,255,255,0.03);padding:8px 16px;border-bottom:0.5px solid var(--border2);">
-        <span style="font-size:12px;font-weight:600;color:${headerColor};text-transform:uppercase;letter-spacing:0.06em;">${key}</span>
-        ${stockSummary}
-      </td>
-    </tr>`;
-
-    for (const p of group.items) {
-      html += `<tr>
-        <td style="font-weight:500;padding-left:28px;">${p.name}</td>
-        <td></td>
-        <td>${statusBadge(p.status)}</td>
-        <td style="color:${p.qty===0?'var(--text3)':p.qty<=2?'var(--amber)':'var(--green)'};">${p.qty===0?'—':p.qty}</td>
-        <td style="color:var(--text2);">${timeAgo(p.lastChecked)}</td>
-        <td><button class="watch-btn-sm ${p.watching?'on':''}" onclick="toggleWatch(${p.id})">${p.watching?'🔔 Watching':'+ Watch'}</button></td>
-        <td><button class="del-btn-sm" onclick="removeProduct(${p.id})">✕</button></td>
-      </tr>`;
-    }
-  }
-  tbody.innerHTML = html;
+  el.innerHTML = products.map(p => `
+    <div class="product-card ${cardClass(p.status)}" style="padding:0.75rem 1rem;">
+      ${retailerIcon(p.retailer)}
+      <div class="product-info">
+        <div class="product-name">${p.name}</div>
+        <div class="product-meta">${retailerBadge(p.retailer)} ${statusBadge(p.status)}</div>
+      </div>
+      <button class="btn btn-danger" style="font-size:12px;padding:5px 10px;" onclick="removeProduct(${p.id})">Remove</button>
+    </div>`).join("");
 }
 
-async function toggleWatch(id) {
-  try {
-    const updated = await apiFetch(`/api/products/${id}/watch`, { method: "PATCH" });
-    const p = products.find(x => x.id === id);
-    if (p) { p.watching = updated.watching; renderTable(); showToast(p.watching ? `🔔 Watching ${p.name}` : `Stopped watching ${p.name}`); }
-  } catch { showToast("Failed to update — is the backend running?"); }
-}
-
-async function removeProduct(id) {
-  try {
-    await apiFetch(`/api/products/${id}`, { method: "DELETE" });
-    const idx = products.findIndex(p => p.id === id);
-    if (idx > -1) { const name = products[idx].name; products.splice(idx, 1); renderTable(); renderRecent(); showToast(`Removed ${name}`); }
-  } catch { showToast("Failed to remove — is the backend running?"); }
-}
-
-// ── Alerts ───────────────────────────────────────────────────────────────────
-function renderAlertList() {
+// ── Render alerts ─────────────────────────────────────────────────────────────
+function renderAlerts() {
   const list = alertFilter === "all" ? alerts : alerts.filter(a => a.type === alertFilter);
-  const el = document.getElementById("alert-list");
-  if (!list.length) { el.innerHTML = `<div class="empty"><div class="empty-icon">🔔</div><p>No alerts yet — stock changes will appear here.</p></div>`; return; }
+  const el   = document.getElementById("alert-list");
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🔔</div><p>No alerts yet.</p><p class="hint">Start polling to detect restocks.</p></div>`;
+    return;
+  }
   el.innerHTML = list.map(a => `
     <div class="alert-card ${a.type}">
-      <div class="alert-icon ${a.type==='restock'?'green':a.type==='low'?'amber':'gray'}">${a.type==='restock'?'✅':a.type==='low'?'⚠️':'🔴'}</div>
+      <div class="alert-icon" style="background:${a.type==='restock'?'var(--green-dim)':a.type==='queue'?'var(--purple-dim)':'var(--surface2)'};">
+        ${a.type === 'restock' ? '✅' : a.type === 'queue' ? '⏰' : '🔴'}
+      </div>
       <div class="alert-body">
-        <div class="alert-title">${a.title}</div>
-        <div class="alert-meta">${retailerBadge(a.retailer)} <span style="color:var(--text3);">·</span> <span>${a.qty}</span></div>
+        <div class="alert-title">
+          ${a.type === 'restock' ? '🎉 Back in stock' : a.type === 'queue' ? '⏰ Queue is live' : 'Sold out'} — ${a.product}
+        </div>
+        <div class="alert-meta">${retailerBadge(a.retailer)} <a href="${a.url}" target="_blank" style="color:var(--accent);font-size:12px;text-decoration:none;">${a.type === 'queue' ? 'Join queue →' : 'View product →'}</a></div>
       </div>
       <div class="alert-time">${timeAgo(a.timestamp)}</div>
     </div>`).join("");
@@ -588,114 +520,56 @@ function filterAlerts(btn) {
   document.querySelectorAll(".filter-chip").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
   alertFilter = btn.dataset.f;
-  renderAlertList();
+  renderAlerts();
 }
 
-// ── Recently added ────────────────────────────────────────────────────────────
-function renderRecent() {
-  const tbody = document.getElementById("recent-tbody");
-  if (!products.length) { tbody.innerHTML = `<tr><td colspan="5"><div class="empty" style="padding:1.5rem;"><p>No products tracked yet.</p></div></td></tr>`; return; }
-  tbody.innerHTML = [...products].reverse().map(p => `
-    <tr>
-      <td style="font-weight:500;">${p.name}</td>
-      <td style="color:var(--text2);font-size:12px;">${p.upc || '—'}</td>
-      <td>${retailerBadge(p.retailer)}</td>
-      <td style="color:var(--text2);">${timeAgo(p.addedAt)}</td>
-      <td><button class="del-btn-sm" onclick="removeProduct(${p.id})">Remove</button></td>
-    </tr>`).join("");
-}
-
-// ── ngrok / backend config ────────────────────────────────────────────────────
-function initNgrokInput() {
-  const stored = localStorage.getItem('POKETRACK_API');
-  if (stored) {
-    document.getElementById("ngrok-url").value = stored;
-    document.getElementById("ngrok-status").textContent = `Active: ${stored}`;
-  }
-}
-
-function saveNgrok() {
-  const val = document.getElementById("ngrok-url").value.trim().replace(/\/$/, "");
-  if (val) {
-    localStorage.setItem('POKETRACK_API', val);
-    document.getElementById("ngrok-status").textContent = `✅ Saved — reloading…`;
-    setTimeout(() => location.reload(), 800);
-  } else {
-    clearNgrok();
-  }
-}
-
-function clearNgrok() {
-  localStorage.removeItem('POKETRACK_API');
-  document.getElementById("ngrok-url").value = "";
-  document.getElementById("ngrok-status").textContent = "Cleared — using Render backend";
-  setTimeout(() => location.reload(), 800);
-}
-
-// ── API Diagnostics ───────────────────────────────────────────────────────────
-async function runDebug() {
-  const tcin = document.getElementById("debug-tcin").value;
-  const [storeId, zip] = document.getElementById("debug-store").value.split("|");
-  const btn = document.getElementById("debug-btn");
-  btn.disabled = true; btn.textContent = "Testing…";
-
+// ── Load data ─────────────────────────────────────────────────────────────────
+async function loadAll() {
   try {
-    const data = await apiFetch(`/api/debug/target/${tcin}?store_id=${storeId}&zip=${zip}`);
-    const result = document.getElementById("debug-result");
-    result.style.display = "block";
-
-    const r = data.response;
-    const p = data.parsed;
-    const rows = [
-      ["HTTP status",     `${r.status} ${r.statusText}`],
-      ["Response time",   r.elapsed],
-      ["API reachable",   r.status === 200 ? "✅ Yes" : "❌ No — " + (r.headers?.["x-deny-reason"] || "blocked")],
-      ["Product title",   p?.title || "—"],
-      ["Store location",  p?.storeLocation || "—"],
-      ["Store qty",       p?.storeQty ?? "—"],
-      ["Store status",    p?.storeStatus || "—"],
-      ["Pickup status",   p?.pickupStatus || "—"],
-      ["Online status",   p?.onlineStatus || "—"],
-      ["OOS all stores",  p?.oosAllStores !== undefined ? String(p.oosAllStores) : "—"],
-    ];
-
-    document.getElementById("debug-summary-tbody").innerHTML = rows.map(([k, v]) => `
-      <tr>
-        <td style="color:var(--text2);font-size:12px;width:160px;">${k}</td>
-        <td style="font-weight:500;font-size:13px;">${v}</td>
-      </tr>`).join("");
-
-    document.getElementById("debug-raw").textContent = JSON.stringify(data.raw, null, 2);
-  } catch(e) {
-    showToast("Debug error: " + e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = "Run test";
+    [products, alerts] = await Promise.all([
+      apiFetch("/api/products"),
+      apiFetch("/api/alerts")
+    ]);
+    const stats = await apiFetch("/api/stats");
+    document.getElementById("s-total").textContent    = stats.total;
+    document.getElementById("s-instock").textContent  = stats.inStock;
+    document.getElementById("s-restocks").textContent = stats.restocks;
+    document.getElementById("nav-instock").textContent = stats.inStock;
+    document.getElementById("nav-alerts").textContent  = alerts.length;
+    setPollingUI(stats.polling);
+    detectRestocks(products);
+    renderProducts();
+    renderTrackedList();
+    renderAlerts();
+  } catch (e) {
+    console.error("Load error:", e);
   }
 }
 
-// ── Polling control ───────────────────────────────────────────────────────────
-let pollingActive = false;
-
+// ── Polling ───────────────────────────────────────────────────────────────────
 function setPollingUI(active) {
   pollingActive = active;
+  const dot   = document.getElementById("live-dot");
+  const label = document.getElementById("live-label");
   const btn   = document.getElementById("poll-btn");
-  const label = document.getElementById("poll-label");
   const icon  = document.getElementById("poll-icon");
   const text  = document.getElementById("poll-status-text");
   if (active) {
+    dot.classList.remove("paused");
+    label.textContent = "Polling every 1 min";
     btn.style.background  = "var(--amber-dim)";
     btn.style.borderColor = "rgba(251,191,36,0.3)";
     btn.style.color       = "var(--amber)";
     icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
-    label.textContent = "Pause polling";
-    text.textContent  = "Target & Best Buy · Pokémon TCG · polling every 1 min";
+    document.getElementById("poll-label").textContent = "Pause";
+    text.textContent = "Online availability · Target, Walmart, Pokémon Center · polling every 1 min";
   } else {
-    btn.style.background  = "";
-    btn.style.borderColor = "";
-    btn.style.color       = "";
+    dot.classList.add("paused");
+    label.textContent = "Paused";
+    btn.style.background = btn.style.borderColor = btn.style.color = "";
     icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
-    label.textContent = "Start polling";
-    text.textContent  = "Target & Best Buy · Pokémon TCG · polling paused";
+    document.getElementById("poll-label").textContent = "Start polling";
+    text.textContent = "Online availability · Target, Walmart, Pokémon Center · paused";
   }
 }
 
@@ -704,139 +578,59 @@ async function togglePolling() {
     const endpoint = pollingActive ? "/api/polling/pause" : "/api/polling/start";
     const res = await apiFetch(endpoint, { method: "POST" });
     setPollingUI(res.active);
-    showToast(res.active ? "▶ Polling started — checking every minute" : "⏸ Polling paused");
-    if (res.active) loadAll();
-  } catch { showToast("Could not reach backend"); }
+    showToast(res.active ? "▶ Polling started" : "⏸ Polling paused");
+    if (res.active) setTimeout(loadAll, 2000);
+  } catch { showToast("Cannot reach backend"); }
 }
 
-async function syncPollingState() {
+async function pollOnce() {
   try {
-    const res = await apiFetch("/api/polling");
-    setPollingUI(res.active);
-  } catch {}
+    showToast("Checking all products…");
+    await apiFetch("/api/poll", { method: "POST" });
+    setTimeout(loadAll, 1500);
+  } catch { showToast("Cannot reach backend"); }
 }
 
-// ── SKU options per set ───────────────────────────────────────────────────────
-const SKU_OPTIONS = [
-  { value: "Elite Trainer Box",         label: "Elite Trainer Box (ETB)" },
-  { value: "Booster Bundle",            label: "Booster Bundle (6 packs)" },
-  { value: "Booster Box",               label: "Booster Box (36 packs)" },
-  { value: "Booster Pack",              label: "Booster Pack (single)" },
-  { value: "Super Premium Collection",  label: "Super Premium Collection (SPC)" },
-  { value: "Premium Collection",        label: "Premium Collection" },
-  { value: "Collection Box",            label: "Collection Box" },
-  { value: "Tin",                       label: "Tin" },
-  { value: "Binder Collection",         label: "Binder Collection" },
-];
-
-// Sets that don't get a Booster Box (special/mini sets)
-const NO_BOOSTER_BOX = new Set(["Prismatic Evolutions", "Paldean Fates", "Shrouded Fable",
-  "Mega Evolution—Ascended Heroes"]);
-
-function updateSkuDropdown() {
-  const line = document.getElementById("sel-line").value;
-  const skuSel = document.getElementById("sel-sku");
-  skuSel.innerHTML = '<option value="">— Select a SKU —</option>';
-  if (!line) return;
-
-  SKU_OPTIONS.forEach(opt => {
-    if (opt.value === "Booster Box" && NO_BOOSTER_BOX.has(line)) return;
-    const el = document.createElement("option");
-    el.value = opt.value;
-    el.textContent = opt.label;
-    skuSel.appendChild(el);
-  });
-  updateProductName();
-}
-
-function updateProductName() {
-  const line = document.getElementById("sel-line").value;
-  const sku  = document.getElementById("sel-sku").value;
-  const nameEl = document.getElementById("sel-name");
-  if (line && sku) {
-    nameEl.value = `${line} ${sku}`;
-  } else if (line) {
-    nameEl.value = line;
-  } else {
-    nameEl.value = "";
-  }
-}
-
-function detectRetailerFromSel() {
-  const v = document.getElementById("sel-url").value;
-  const sel = document.getElementById("sel-retailer");
-  if (v.includes("target.com"))      sel.value = "Target";
-  else if (v.includes("bestbuy.com")) sel.value = "Best Buy";
-}
-
-async function addBySelect() {
-  const url      = document.getElementById("sel-url").value.trim();
-  const name     = document.getElementById("sel-name").value.trim();
-  const retailer = document.getElementById("sel-retailer").value;
-  if (!document.getElementById("sel-line").value) { showToast("Please select a product line."); return; }
-  if (!document.getElementById("sel-sku").value)  { showToast("Please select a SKU type."); return; }
-  if (!url) { showToast("Please paste the product URL."); return; }
-
-  const btn = document.getElementById("sel-btn");
-  btn.disabled = true; btn.textContent = "Adding…";
-  try {
-    const p = await apiFetch("/api/products/url", { method: "POST", body: JSON.stringify({ url, name }) });
-    products.unshift(p);
-    renderTable(); renderRecent();
-    document.getElementById("sel-url").value = "";
-    document.getElementById("sel-line").value = "";
-    document.getElementById("sel-sku").innerHTML = '<option value="">— Select a set first —</option>';
-    document.getElementById("sel-name").value = "";
-    showToast(`✅ Now tracking ${name} at ${p.retailer}`);
-  } catch(e) {
-    showToast("Error: " + (e.message || "Could not add product"));
-  } finally {
-    btn.disabled = false; btn.textContent = "Track this product";
-  }
-}
-
-// ── Add product (manual URL) ──────────────────────────────────────────────────
+// ── Add product ───────────────────────────────────────────────────────────────
 function detectRetailer() {
-  const v = document.getElementById("url-input").value;
-  const sel = document.getElementById("url-retailer");
-  if (v.includes("target.com"))       sel.value = "Target";
-  else if (v.includes("bestbuy.com")) sel.value = "Best Buy";
-  else sel.value = "";
+  const url = document.getElementById("add-url").value;
+  const el  = document.getElementById("detected-retailer");
+  if (url.includes("target.com"))          el.textContent = "✓ Detected: Target";
+  else if (url.includes("walmart.com"))    el.textContent = "✓ Detected: Walmart";
+  else if (url.includes("pokemoncenter.com")) el.textContent = "✓ Detected: Pokémon Center";
+  else                                      el.textContent = url.length > 10 ? "⚠ Unsupported retailer" : "";
 }
 
-async function addByURL() {
-  const url  = document.getElementById("url-input").value.trim();
-  const name = document.getElementById("url-name").value.trim();
-  if (!url)  { showToast("Paste a product URL first."); return; }
-  if (!name) { showToast("Enter a product name first."); return; }
-  const btn = document.getElementById("url-btn");
+async function addProduct() {
+  const name = document.getElementById("add-name").value.trim();
+  const url  = document.getElementById("add-url").value.trim();
+  if (!name) { showToast("Please enter a product name."); return; }
+  if (!url)  { showToast("Please paste a product URL."); return; }
+  const btn = document.getElementById("add-btn");
   btn.disabled = true; btn.textContent = "Adding…";
   try {
-    const p = await apiFetch("/api/products/url", { method: "POST", body: JSON.stringify({ url, name }) });
-    products.unshift(p);
-    renderTable(); renderRecent();
-    document.getElementById("url-input").value = "";
-    document.getElementById("url-name").value  = "";
-    showToast(`✅ Now tracking ${p.name} at ${p.retailer}`);
+    const p = await apiFetch("/api/products", { method: "POST", body: JSON.stringify({ name, url }) });
+    products.push(p);
+    renderProducts(); renderTrackedList();
+    document.getElementById("add-name").value = "";
+    document.getElementById("add-url").value  = "";
+    document.getElementById("detected-retailer").textContent = "";
+    showToast(`✅ Now tracking ${p.name}`);
+    showPage("dashboard", document.querySelectorAll(".nav-item")[0]);
   } catch(e) {
     showToast("Error: " + (e.message || "Could not add product"));
   } finally {
-    btn.disabled = false; btn.textContent = "Track this product";
+    btn.disabled = false; btn.textContent = "Add to tracker";
   }
 }
 
-// ── Notifications ─────────────────────────────────────────────────────────────
-function requestNotifications() {
-  if (!("Notification" in window)) { showToast("Browser doesn't support notifications."); return; }
-  Notification.requestPermission().then(p => {
-    document.getElementById("notify-banner").style.display = "none";
-    if (p === "granted") {
-      showToast("🔔 Push notifications enabled!");
-      new Notification("PokéTrack active", { body: "You'll be notified the moment a restock is detected." });
-    } else {
-      showToast("Notifications blocked — enable in browser settings.");
-    }
-  });
+async function removeProduct(id) {
+  try {
+    await apiFetch(`/api/products/${id}`, { method: "DELETE" });
+    products = products.filter(p => p.id !== id);
+    renderProducts(); renderTrackedList();
+    showToast("Product removed");
+  } catch { showToast("Could not remove product"); }
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -845,17 +639,11 @@ function showPage(id, btn) {
   document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
   document.getElementById("page-" + id).classList.add("active");
   if (btn) btn.classList.add("active");
-  if (id === "add") renderRecent();
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-if ("Notification" in window && Notification.permission === "default") {
-  document.getElementById("notify-banner").style.display = "flex";
-}
 loadAll();
-syncPollingState();
-initNgrokInput();
-setInterval(loadAll, 30000); // refresh UI every 30s
+setInterval(loadAll, 30000);
 </script>
 </body>
 </html>
