@@ -468,7 +468,13 @@ function showToast(msg, dur=3000) {
   clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), dur);
 }
 async function apiFetch(path, opts={}) {
-  const res = await fetch(API + path, { headers: {"Content-Type":"application/json"}, ...opts });
+  const res = await fetch(API + path, {
+    headers: {
+      "Content-Type": "application/json",
+      "ngrok-skip-browser-warning": "true"
+    },
+    ...opts
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
