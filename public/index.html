@@ -620,13 +620,13 @@ function setPollingUI(active) {
   const text  = document.getElementById("poll-status-text");
   if (active) {
     dot.classList.remove("paused");
-    label.textContent = "Polling every 1 min";
+    label.textContent = "Polling 25–45s";
     btn.style.background  = "var(--amber-dim)";
     btn.style.borderColor = "rgba(251,191,36,0.3)";
     btn.style.color       = "var(--amber)";
     icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
     document.getElementById("poll-label").textContent = "Pause";
-    text.textContent = "Online availability · Target, Walmart, Pokémon Center · polling every 1 min";
+    text.textContent = "Online availability · Target, Walmart, Pokémon Center · polling every 25–45s";
   } else {
     dot.classList.add("paused");
     label.textContent = "Paused";

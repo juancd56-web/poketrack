@@ -212,18 +212,32 @@ async function pollAll() {
   }
 }
 
+function randomInterval() {
+  return Math.floor(Math.random() * (45000 - 25000 + 1)) + 25000; // 25–45 seconds
+}
+
+function scheduleNextPoll() {
+  if (!pollingActive) return;
+  const interval = randomInterval();
+  console.log(`Next poll in ${(interval/1000).toFixed(1)}s`);
+  pollIntervalId = setTimeout(async () => {
+    await pollAll();
+    scheduleNextPoll();
+  }, interval);
+}
+
 function startPolling() {
   if (pollingActive) return;
   pollingActive  = true;
   pollAll();
-  pollIntervalId = setInterval(pollAll, 60 * 1000);
-  console.log("Polling STARTED");
+  scheduleNextPoll();
+  console.log("Polling STARTED (dynamic 25–45s interval)");
 }
 
 function stopPolling() {
   if (!pollingActive) return;
   pollingActive = false;
-  if (pollIntervalId) { clearInterval(pollIntervalId); pollIntervalId = null; }
+  if (pollIntervalId) { clearTimeout(pollIntervalId); pollIntervalId = null; }
   console.log("Polling PAUSED");
 }
 
