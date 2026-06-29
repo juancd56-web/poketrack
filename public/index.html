@@ -172,6 +172,12 @@
     Add product
   </button>
 
+  <div class="nav-section">Settings</div>
+  <button class="nav-item" onclick="showPage('settings',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    Settings
+  </button>
+
   <div class="nav-footer">
     <div class="live-indicator">
       <div class="live-dot paused" id="live-dot"></div>
@@ -285,6 +291,58 @@
       </div>
     </div>
   </div>
+  <!-- SETTINGS -->
+  <div class="page" id="page-settings">
+    <div class="page-header">
+      <div><h1>Settings</h1><p>Configure backend connection and test retailer APIs</p></div>
+    </div>
+    <div class="page-body" style="max-width:620px;">
+
+      <div class="section-title" style="margin-bottom:12px;">Backend connection</div>
+      <div class="add-form" style="margin-bottom:1.5rem;">
+        <h2>Connect via ngrok</h2>
+        <p class="sub">Run the backend on your home Mac and paste the ngrok URL here to route API calls through your home IP.</p>
+        <label>ngrok URL</label>
+        <input type="url" id="ngrok-url" placeholder="https://abc123.ngrok-free.app">
+        <div style="display:flex;gap:8px;margin-top:1rem;">
+          <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveNgrok()">Save &amp; reconnect</button>
+          <button class="btn" onclick="clearNgrok()">Clear</button>
+        </div>
+        <div id="ngrok-status" style="margin-top:10px;font-size:12px;color:var(--text2);min-height:18px;"></div>
+      </div>
+
+      <div class="section-title" style="margin-bottom:12px;">How to run locally</div>
+      <div class="add-form" style="margin-bottom:1.5rem;">
+        <h2>Mac launcher steps</h2>
+        <p class="sub">Run these in order after double-clicking your Automator app.</p>
+        <label>1 — Add ngrok auth token (one time only)</label>
+        <input type="text" value="/opt/homebrew/bin/ngrok config add-authtoken YOUR_TOKEN" readonly style="opacity:0.7;font-family:monospace;font-size:12px;cursor:text;">
+        <label>2 — Start the backend</label>
+        <input type="text" value="/opt/homebrew/bin/node /path/to/poketrack/src/server.js" readonly style="opacity:0.7;font-family:monospace;font-size:12px;cursor:text;">
+        <label>3 — Open ngrok tunnel</label>
+        <input type="text" value="/opt/homebrew/bin/ngrok http 3000" readonly style="opacity:0.7;font-family:monospace;font-size:12px;cursor:text;">
+        <p class="sub" style="margin-top:12px;margin-bottom:0;">Copy the <strong style="color:var(--text);">https://</strong> URL ngrok shows, paste it above, hit Save.</p>
+      </div>
+
+      <div class="section-title" style="margin-bottom:12px;">API diagnostics</div>
+      <div class="add-form">
+        <h2>Test a product URL</h2>
+        <p class="sub">Fires a single check against a product and shows the raw result — useful for verifying your home IP is working.</p>
+        <label>Select a tracked product</label>
+        <select id="debug-product" style="width:100%;background:var(--surface2);border:0.5px solid var(--border2);color:var(--text);border-radius:var(--radius-sm);padding:9px 12px;font-size:13px;outline:none;">
+          <option value="">— Add products first —</option>
+        </select>
+        <button class="btn btn-primary" id="debug-btn" onclick="runDebug()" style="margin-top:1rem;width:100%;justify-content:center;">Run test</button>
+        <div id="debug-result" style="display:none;margin-top:1.25rem;">
+          <div style="background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--radius-sm);padding:1rem;">
+            <table style="width:100%;border-collapse:collapse;" id="debug-table"></table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 </main>
 
 <div id="toast"></div>
@@ -633,12 +691,75 @@ async function removeProduct(id) {
   } catch { showToast("Could not remove product"); }
 }
 
+// ── Settings: ngrok ───────────────────────────────────────────────────────────
+function initSettings() {
+  const stored = localStorage.getItem('POKETRACK_API');
+  if (stored) {
+    document.getElementById("ngrok-url").value = stored;
+    document.getElementById("ngrok-status").textContent = `✅ Active: ${stored}`;
+  }
+  // Populate debug product dropdown
+  const sel = document.getElementById("debug-product");
+  sel.innerHTML = products.length
+    ? products.map(p => `<option value="${p.id}">${p.name} — ${p.retailer}</option>`).join("")
+    : '<option value="">— Add products first —</option>';
+}
+
+function saveNgrok() {
+  const val = document.getElementById("ngrok-url").value.trim().replace(/\/$/, "");
+  if (val) {
+    localStorage.setItem('POKETRACK_API', val);
+    document.getElementById("ngrok-status").textContent = "✅ Saved — reloading…";
+    setTimeout(() => location.reload(), 800);
+  } else {
+    clearNgrok();
+  }
+}
+
+function clearNgrok() {
+  localStorage.removeItem('POKETRACK_API');
+  document.getElementById("ngrok-url").value = "";
+  document.getElementById("ngrok-status").textContent = "Cleared — using Railway backend";
+  setTimeout(() => location.reload(), 800);
+}
+
+// ── Settings: API debug ───────────────────────────────────────────────────────
+async function runDebug() {
+  const id  = document.getElementById("debug-product").value;
+  if (!id) { showToast("Select a product first."); return; }
+  const btn = document.getElementById("debug-btn");
+  btn.disabled = true; btn.textContent = "Testing…";
+  try {
+    const data = await apiFetch(`/api/debug/${id}`);
+    const r    = data.result;
+    const rows = [
+      ["Product",  data.product?.name],
+      ["Retailer", data.product?.retailer],
+      ["Status",   r?.status],
+      ["Online",   r?.online ? "✅ Yes" : "❌ No"],
+      ["Queue",    r?.queueActive ? "⏰ Yes" : "—"],
+      ["Error",    r?.error || "—"],
+    ];
+    document.getElementById("debug-table").innerHTML = rows.map(([k,v]) => `
+      <tr>
+        <td style="font-size:12px;color:var(--text2);padding:5px 8px;width:100px;">${k}</td>
+        <td style="font-size:13px;font-weight:500;padding:5px 8px;">${v ?? "—"}</td>
+      </tr>`).join("");
+    document.getElementById("debug-result").style.display = "block";
+  } catch(e) {
+    showToast("Debug error: " + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "Run test";
+  }
+}
+
 // ── Navigation ────────────────────────────────────────────────────────────────
 function showPage(id, btn) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
   document.getElementById("page-" + id).classList.add("active");
   if (btn) btn.classList.add("active");
+  if (id === "settings") initSettings();
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
