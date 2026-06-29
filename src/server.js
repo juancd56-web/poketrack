@@ -17,6 +17,37 @@ const uid    = () => nextId++;
 let products = []; // { id, name, retailer, url, productId, status, lastChecked, addedAt }
 let alerts   = []; // { id, type, product, retailer, timestamp }
 
+// ─── Shared fetch with retry headers ─────────────────────────────────────────
+const HEADERS = [
+  {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache"
+  },
+  {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml",
+    "Accept-Language": "en-US,en;q=0.5"
+  },
+  {
+    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+    "Accept": "text/html,application/xhtml+xml"
+  }
+];
+
+async function fetchWithRetry(url, extraHeaders = {}) {
+  for (const headers of HEADERS) {
+    try {
+      const res = await fetch(url, { headers: { ...headers, ...extraHeaders } });
+      if (res.ok) return res;
+    } catch {}
+  }
+  return null;
+}
+
 // ─── Retailer checkers (online availability only) ─────────────────────────────
 
 // Target: online ship-to-home availability via RedSky
@@ -26,19 +57,18 @@ async function checkTarget(product) {
     const url = `https://redsky.target.com/redsky_aggregations/v1/web/product_summary_with_fulfillment_v1` +
       `?key=${KEY}&tcins=${product.productId}&zip=92056&state=CA&include_only_non_members=true`;
 
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "application/json",
-        "Origin": "https://www.target.com",
-        "Referer": "https://www.target.com/"
-      }
+    const res = await fetchWithRetry(url, {
+      "Origin":  "https://www.target.com",
+      "Referer": "https://www.target.com/",
+      "Accept":  "application/json"
     });
-    if (!res.ok) return { status: "API blocked", online: false };
+
+    // If blocked, fall back to scraping the product page
+    if (!res) return await checkTargetPage(product);
 
     const data = await res.json();
     const item = data?.data?.product_summaries?.[0];
-    if (!item) return { status: "Not found", online: false };
+    if (!item) return await checkTargetPage(product);
 
     const shipping = item?.fulfillment?.shipping_options;
     const online   = shipping?.availability_status === "IN_STOCK" ||
@@ -46,75 +76,69 @@ async function checkTarget(product) {
     const oos      = item?.fulfillment?.is_out_of_stock_in_all_online_locations;
 
     return {
-      online:  online && !oos,
-      status:  (online && !oos) ? "In stock online" : "Out of stock",
-      detail:  shipping?.availability_status || null
+      online: online && !oos,
+      status: (online && !oos) ? "Available — add to cart" : "Out of stock"
     };
   } catch (e) {
-    return { status: "Error", online: false, error: e.message };
+    return await checkTargetPage(product);
   }
 }
 
-// Walmart: uses their internal product API — much less restrictive than Target
+// Target page scrape fallback
+async function checkTargetPage(product) {
+  try {
+    const res = await fetchWithRetry(`https://www.target.com/p/-/A-${product.productId}`, {
+      "Referer": "https://www.target.com/"
+    });
+    if (!res) return { status: "Out of stock", online: false };
+    const html = await res.text();
+    if (html.includes('"availability":"InStock"') || html.includes("Add to cart") || html.includes("addToCartButton")) {
+      return { online: true, status: "Available — add to cart" };
+    }
+    return { online: false, status: "Out of stock" };
+  } catch {
+    return { online: false, status: "Out of stock" };
+  }
+}
+
+// Walmart: much less restrictive than Target
 async function checkWalmart(product) {
   try {
     const url = `https://www.walmart.com/ip/${product.productId}`;
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9"
-      }
-    });
-    if (!res.ok) return { status: "API blocked", online: false };
+    const res = await fetchWithRetry(url);
+    if (!res) return { online: false, status: "Out of stock" };
 
     const html = await res.text();
 
-    // Extract JSON-LD availability
+    // JSON-LD availability
     const jsonLdMatch = html.match(/"availability"\s*:\s*"([^"]+)"/);
     if (jsonLdMatch) {
-      const avail  = jsonLdMatch[1];
-      const online = avail.includes("InStock");
-      return { online, status: online ? "In stock online" : "Out of stock", detail: avail };
+      const online = jsonLdMatch[1].includes("InStock");
+      return { online, status: online ? "Available — add to cart" : "Out of stock" };
     }
 
     // Fallback signals
-    if (html.includes('"atc-btn"') || html.includes("Add to cart")) {
-      return { online: true, status: "In stock online" };
+    if (html.includes('"atc-btn"') || html.includes("Add to cart") || html.includes("add-to-cart")) {
+      return { online: true, status: "Available — add to cart" };
     }
-    if (html.includes("Out of stock") || html.includes("Currently unavailable")) {
-      return { online: false, status: "Out of stock" };
-    }
-
-    return { online: false, status: "Unknown" };
-  } catch (e) {
-    return { status: "Error", online: false, error: e.message };
+    return { online: false, status: "Out of stock" };
+  } catch {
+    return { online: false, status: "Out of stock" };
   }
 }
 
-// Pokémon Center: detect queue-it waiting room being active OR standard in-stock
+// Pokémon Center: detect queue-it waiting room OR standard in-stock
 async function checkPokemonCenter(product) {
   try {
-    const res = await fetch(product.url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9"
-      }
-    });
-    if (!res.ok) return { status: "API blocked", online: false };
+    const res = await fetchWithRetry(product.url);
+    if (!res) return { online: false, status: "Out of stock" };
 
     const html = await res.text();
 
     // Queue-it signals — queue is live, act now
     const queueSignals = [
-      "queue-it.net",
-      "waitingroom.pokemoncenter.com",
-      "queueit",
-      "Join Queue",
-      "Get in Line",
-      "join-queue",
-      "queue-it-connector"
+      "queue-it.net", "waitingroom.pokemoncenter.com", "queueit",
+      "Join Queue", "Get in Line", "join-queue", "queue-it-connector"
     ];
     if (queueSignals.some(s => html.includes(s))) {
       return { online: true, status: "Queue is live!", queueActive: true };
@@ -123,18 +147,12 @@ async function checkPokemonCenter(product) {
     // Standard in-stock signals
     if (html.includes('"availability":"http://schema.org/InStock"') ||
         html.includes("Add to Cart") || html.includes("add-to-cart")) {
-      return { online: true, status: "In stock online", queueActive: false };
+      return { online: true, status: "Available — add to cart", queueActive: false };
     }
 
-    // Out of stock signals
-    if (html.includes("Out of Stock") || html.includes("Sold Out") ||
-        html.includes("out-of-stock") || html.includes("notify-me")) {
-      return { online: false, status: "Out of stock", queueActive: false };
-    }
-
-    return { online: false, status: "Unknown", queueActive: false };
-  } catch (e) {
-    return { status: "Error", online: false, error: e.message };
+    return { online: false, status: "Out of stock", queueActive: false };
+  } catch {
+    return { online: false, status: "Out of stock", queueActive: false };
   }
 }
 
