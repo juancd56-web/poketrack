@@ -3,6 +3,7 @@ const express = require("express");
 const cors    = require("cors");
 const fetch   = require("node-fetch");
 const path    = require("path");
+const fs      = require("fs");
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -11,11 +12,50 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
 
+// ─── JSON file persistence ────────────────────────────────────────────────────
+const DATA_FILE = path.join(__dirname, "../data/products.json");
+
+function ensureDataDir() {
+  const dir = path.dirname(DATA_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+function saveProducts() {
+  try {
+    ensureDataDir();
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ nextId, products }, null, 2));
+  } catch (e) {
+    console.error("Failed to save products:", e.message);
+  }
+}
+
+function loadProducts() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+      nextId   = data.nextId   || 1;
+      products = data.products || [];
+      // Reset transient status fields on load
+      products.forEach(p => {
+        p.status      = "Checking…";
+        p.online      = false;
+        p.lastChecked = null;
+      });
+      console.log(`Loaded ${products.length} products from disk`);
+    }
+  } catch (e) {
+    console.error("Failed to load products:", e.message);
+  }
+}
+
 // ─── In-memory store ──────────────────────────────────────────────────────────
 let nextId   = 1;
 const uid    = () => nextId++;
 let products = []; // { id, name, retailer, url, productId, status, lastChecked, addedAt }
 let alerts   = []; // { id, type, product, retailer, timestamp }
+
+// Load saved products on startup
+loadProducts();
 
 // ─── Shared fetch with retry headers ─────────────────────────────────────────
 const HEADERS = [
@@ -297,6 +337,7 @@ app.post("/api/products", async (req, res) => {
     addedAt:     new Date().toISOString()
   };
   products.push(product);
+  saveProducts();
 
   // Check immediately in background
   setTimeout(async () => {
@@ -313,6 +354,7 @@ app.delete("/api/products/:id", (req, res) => {
   const idx = products.findIndex(p => p.id === Number(req.params.id));
   if (idx === -1) return res.status(404).json({ error: "Not found" });
   products.splice(idx, 1);
+  saveProducts();
   res.json({ ok: true });
 });
 
