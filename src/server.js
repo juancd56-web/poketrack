@@ -252,14 +252,19 @@ async function pollAll() {
   }
 }
 
+let huntMode = false; // false = monitor (25-45s), true = hunt (15-20s)
+
 function randomInterval() {
-  return Math.floor(Math.random() * (45000 - 25000 + 1)) + 25000; // 25–45 seconds
+  return huntMode
+    ? Math.floor(Math.random() * (20000 - 15000 + 1)) + 15000  // Hunt: 15–20s
+    : Math.floor(Math.random() * (45000 - 25000 + 1)) + 25000; // Monitor: 25–45s
 }
 
 function scheduleNextPoll() {
   if (!pollingActive) return;
   const interval = randomInterval();
-  console.log(`Next poll in ${(interval/1000).toFixed(1)}s`);
+  const mode = huntMode ? "HUNT" : "MONITOR";
+  console.log(`[${mode}] Next poll in ${(interval/1000).toFixed(1)}s`);
   pollIntervalId = setTimeout(async () => {
     await pollAll();
     scheduleNextPoll();
@@ -268,10 +273,10 @@ function scheduleNextPoll() {
 
 function startPolling() {
   if (pollingActive) return;
-  pollingActive  = true;
+  pollingActive = true;
   pollAll();
   scheduleNextPoll();
-  console.log("Polling STARTED (dynamic 25–45s interval)");
+  console.log(`Polling STARTED — ${huntMode ? "HUNT mode (15–20s)" : "MONITOR mode (25–45s)"}`);
 }
 
 function stopPolling() {
@@ -369,13 +374,27 @@ app.get("/api/stats", (req, res) => {
     total:    products.length,
     inStock:  products.filter(p => p.status === "In stock online").length,
     restocks: alerts.filter(a => a.type === "restock" && new Date(a.timestamp).toDateString() === today).length,
-    polling:  pollingActive
+    polling:  pollingActive,
+    huntMode
   });
 });
 
-app.get("/api/polling",        (req, res) => res.json({ active: pollingActive }));
-app.post("/api/polling/start", (req, res) => { startPolling(); res.json({ active: true }); });
-app.post("/api/polling/pause", (req, res) => { stopPolling();  res.json({ active: false }); });
+app.get("/api/polling",        (req, res) => res.json({ active: pollingActive, huntMode }));
+app.post("/api/polling/start", (req, res) => { startPolling(); res.json({ active: true, huntMode }); });
+app.post("/api/polling/pause", (req, res) => { stopPolling();  res.json({ active: false, huntMode }); });
+app.post("/api/polling/hunt",  (req, res) => {
+  huntMode = true;
+  // Restart polling with new interval if already active
+  if (pollingActive) { clearTimeout(pollIntervalId); scheduleNextPoll(); }
+  console.log("Switched to HUNT mode (15–20s)");
+  res.json({ active: pollingActive, huntMode });
+});
+app.post("/api/polling/monitor", (req, res) => {
+  huntMode = false;
+  if (pollingActive) { clearTimeout(pollIntervalId); scheduleNextPoll(); }
+  console.log("Switched to MONITOR mode (25–45s)");
+  res.json({ active: pollingActive, huntMode });
+});
 app.post("/api/poll",          async (req, res) => { await pollAll(); res.json({ ok: true }); });
 
 // Debug: raw check for a single product

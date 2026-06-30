@@ -199,6 +199,9 @@
           <svg id="poll-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <span id="poll-label">Start polling</span>
         </button>
+        <button class="btn" id="hunt-btn" onclick="toggleHuntMode()" title="Switch between Monitor and Hunt mode">
+          🎯 <span id="hunt-label">Monitor mode</span>
+        </button>
         <button class="btn" onclick="pollOnce()" title="Check now">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           Check now
@@ -600,7 +603,7 @@ async function loadAll() {
     document.getElementById("s-restocks").textContent = stats.restocks;
     document.getElementById("nav-instock").textContent = stats.inStock;
     document.getElementById("nav-alerts").textContent  = alerts.length;
-    setPollingUI(stats.polling);
+    setPollingUI(stats.polling, stats.huntMode);
     detectRestocks(products);
     renderProducts();
     renderTrackedList();
@@ -611,22 +614,40 @@ async function loadAll() {
 }
 
 // ── Polling ───────────────────────────────────────────────────────────────────
-function setPollingUI(active) {
+function setPollingUI(active, huntMode) {
   pollingActive = active;
   const dot   = document.getElementById("live-dot");
   const label = document.getElementById("live-label");
   const btn   = document.getElementById("poll-btn");
   const icon  = document.getElementById("poll-icon");
   const text  = document.getElementById("poll-status-text");
+  const huntBtn   = document.getElementById("hunt-btn");
+  const huntLabel = document.getElementById("hunt-label");
+
+  // Hunt mode button
+  if (huntMode) {
+    huntBtn.style.background  = "var(--red-dim)";
+    huntBtn.style.borderColor = "rgba(248,113,113,0.3)";
+    huntBtn.style.color       = "var(--red)";
+    huntLabel.textContent     = "Hunt mode (15–20s)";
+  } else {
+    huntBtn.style.background  = "";
+    huntBtn.style.borderColor = "";
+    huntBtn.style.color       = "";
+    huntLabel.textContent     = "Monitor mode (25–45s)";
+  }
+
   if (active) {
     dot.classList.remove("paused");
-    label.textContent = "Polling 25–45s";
+    label.textContent = huntMode ? "Hunt mode" : "Monitor mode";
     btn.style.background  = "var(--amber-dim)";
     btn.style.borderColor = "rgba(251,191,36,0.3)";
     btn.style.color       = "var(--amber)";
     icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
     document.getElementById("poll-label").textContent = "Pause";
-    text.textContent = "Online availability · Target, Walmart, Pokémon Center · polling every 25–45s";
+    text.textContent = huntMode
+      ? "Online availability · Target, Walmart, Pokémon Center · 🎯 hunt mode (15–20s)"
+      : "Online availability · Target, Walmart, Pokémon Center · monitor mode (25–45s)";
   } else {
     dot.classList.add("paused");
     label.textContent = "Paused";
@@ -637,13 +658,34 @@ function setPollingUI(active) {
   }
 }
 
+async function toggleHuntMode() {
+  try {
+    const isHunt = document.getElementById("hunt-label").textContent.includes("Hunt");
+    const endpoint = isHunt ? "/api/polling/monitor" : "/api/polling/hunt";
+    const res = await apiFetch(endpoint, { method: "POST" });
+    setPollingUI(res.active, res.huntMode);
+    showToast(res.huntMode ? "🎯 Hunt mode — checking every 15–20s" : "👁 Monitor mode — checking every 25–45s");
+  } catch { showToast("Cannot reach backend"); }
+}
+
 async function togglePolling() {
   try {
     const endpoint = pollingActive ? "/api/polling/pause" : "/api/polling/start";
     const res = await apiFetch(endpoint, { method: "POST" });
-    setPollingUI(res.active);
+    setPollingUI(res.active, res.huntMode);
     showToast(res.active ? "▶ Polling started" : "⏸ Polling paused");
     if (res.active) setTimeout(loadAll, 2000);
+  } catch { showToast("Cannot reach backend"); }
+}
+
+async function toggleHuntMode() {
+  try {
+    const currentLabel = document.getElementById("hunt-label").textContent;
+    const isHunt = currentLabel.includes("Hunt");
+    const endpoint = isHunt ? "/api/polling/monitor" : "/api/polling/hunt";
+    const res = await apiFetch(endpoint, { method: "POST" });
+    setPollingUI(res.active, res.huntMode);
+    showToast(res.huntMode ? "🎯 Hunt mode — checking every 15–20s" : "👁 Monitor mode — checking every 25–45s");
   } catch { showToast("Cannot reach backend"); }
 }
 
